@@ -13,7 +13,7 @@ import httpx
 from .config import settings
 from .database import db
 from .modules.ai_processor import ai_processor
-from .modules.wordpress_publisher import wordpress_publisher
+from .modules.wordpress_publisher import wp_publisher
 from .modules.gmail_client import gmail_client
 from .modules.realtime_notifications import realtime_manager
 
@@ -96,7 +96,7 @@ async def health_check():
     
     # Testar WordPress
     try:
-        checks["wordpress"] = wordpress_publisher.test_connection()
+        checks["wordpress"] = wp_publisher.test_connection()
     except Exception as e:
         logger.error(f"Erro no health check WordPress: {e}")
         checks["wordpress"] = False
@@ -558,7 +558,7 @@ async def populate_knowledge_base():
     """Popula a knowledge base com posts existentes do WordPress"""
     try:
         # Buscar posts recentes do WordPress
-        posts = wordpress_publisher.get_recent_posts(limit=50)
+        posts = wp_publisher.get_recent_posts(limit=50)
         
         if not posts:
             return {"message": "Nenhum post encontrado no WordPress", "count": 0}
@@ -568,7 +568,7 @@ async def populate_knowledge_base():
         for post in posts:
             try:
                 # Extrair conteúdo limpo
-                content = wordpress_publisher.extract_clean_content(post.get('content', ''))
+                content = wp_publisher.extract_clean_content(post.get('content', ''))
                 
                 if len(content) < 100:  # Ignorar posts muito pequenos
                     continue
@@ -657,7 +657,7 @@ async def get_realtime_stats():
 async def analyze_external_links():
     """Analisa posts com links externos para insights"""
     try:
-        posts_with_links = wordpress_publisher.get_posts_with_external_links(limit=30)
+        posts_with_links = wp_publisher.get_posts_with_external_links(limit=30)
         
         analysis = {
             "total_posts_analyzed": len(posts_with_links),
@@ -706,7 +706,7 @@ async def analyze_external_links():
 async def analyze_category_content(category_slug: str):
     """Analisa conteúdo de uma categoria específica"""
     try:
-        posts = wordpress_publisher.get_posts_by_category(category_slug, limit=20)
+        posts = wp_publisher.get_posts_by_category(category_slug, limit=20)
         
         if not posts:
             return {"message": f"Nenhum post encontrado na categoria '{category_slug}'"}
@@ -726,7 +726,7 @@ async def analyze_category_content(category_slug: str):
         
         for post in posts:
             # Extrair conteúdo limpo
-            content = wordpress_publisher.extract_clean_content(
+            content = wp_publisher.extract_clean_content(
                 post.get('content', {}).get('rendered', '')
             )
             
