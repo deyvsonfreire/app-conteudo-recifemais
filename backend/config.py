@@ -8,12 +8,17 @@ from typing import Optional
 class Settings(BaseSettings):
     # Configurações gerais
     APP_NAME: str = "RecifeMais Conteúdo"
-    APP_VERSION: str = "2.2.1"
+    APP_VERSION: str = "2.3.0"
     DEBUG: bool = False
     
     # URLs e Endpoints - PRODUÇÃO
     WORDPRESS_URL: str = "https://recifemais.com.br"
     GMAIL_REDIRECT_URI: str = "https://redacao.admin.recifemais.com.br/auth/callback"
+    BASE_URL: str = "https://redacao.admin.recifemais.com.br"
+    
+    # Configurações Google Data (Search Console + Analytics)
+    GSC_SITE_URL: str = "https://recifemais.com.br/"
+    GA4_PROPERTY_ID: str = ""  # Será configurado via admin
     
     # Supabase - URLs públicos
     SUPABASE_URL: str = "https://aoyrpadrrsckxbuadcnf.supabase.co"
@@ -101,6 +106,16 @@ class Settings(BaseSettings):
     def secure_supabase_service_key(self) -> Optional[str]:
         """Service Key Supabase (do banco ou .env)"""
         return self.get_secure_credential("supabase_service_key") or self.SUPABASE_SERVICE_KEY
+    
+    @property
+    def secure_gsc_site_url(self) -> str:
+        """URL do site no Google Search Console"""
+        return self.get_secure_credential("gsc_site_url") or self.GSC_SITE_URL
+    
+    @property
+    def secure_ga4_property_id(self) -> Optional[str]:
+        """Property ID do Google Analytics 4"""
+        return self.get_secure_credential("ga4_property_id") or self.GA4_PROPERTY_ID
 
 # Instância global das configurações
 settings = Settings() 

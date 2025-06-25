@@ -16,6 +16,7 @@ from .modules.ai_processor import ai_processor
 from .modules.wordpress_publisher import wp_publisher
 from .modules.gmail_client import gmail_client
 from .modules.realtime_notifications import realtime_manager
+from .modules.google_data_connector import google_connector
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -115,6 +116,14 @@ async def health_check():
     except Exception as e:
         logger.error(f"Erro no health check Gmail: {e}")
         checks["gmail"] = False
+    
+    # Testar Google Data Connector
+    try:
+        gd_status = google_connector.test_connection()
+        checks["google_data"] = gd_status.get("credentials_valid", False)
+    except Exception as e:
+        logger.error(f"Erro no health check Google Data: {e}")
+        checks["google_data"] = False
     
     all_healthy = all(checks.values())
     
@@ -887,6 +896,243 @@ async def calculate_content_relevance(content_data: dict):
             
     except Exception as e:
         logger.error(f"Erro ao calcular relevância: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==========================================
+# GOOGLE DATA CONNECTOR ENDPOINTS
+# ==========================================
+
+@app.get("/auth/google")
+async def google_data_auth():
+    """Inicia autenticação com Google Data (GSC + GA4)"""
+    try:
+        auth_url = google_connector.get_authorization_url()
+        if auth_url:
+            return {"auth_url": auth_url}
+        else:
+            raise HTTPException(status_code=500, detail="Não foi possível gerar URL de autorização")
+    except Exception as e:
+        logger.error(f"Erro na autenticação Google Data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/auth/google/callback")
+async def google_data_callback(code: str):
+    """Callback da autenticação Google Data"""
+    try:
+        success = google_connector.authenticate_google(code)
+        if success:
+            return {"message": "Autenticação Google Data concluída com sucesso"}
+        else:
+            raise HTTPException(status_code=400, detail="Falha na autenticação Google Data")
+    except Exception as e:
+        logger.error(f"Erro no callback Google Data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/google-data/status")
+async def google_data_status():
+    """Status da conexão com Google Data"""
+    try:
+        status = google_connector.test_connection()
+        return status
+    except Exception as e:
+        logger.error(f"Erro ao verificar status Google Data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/google-data/gsc/performance")
+async def get_gsc_performance(
+    days_back: int = 30,
+    dimensions: str = "query",
+    limit: int = 100
+):
+    """Busca dados de performance do Google Search Console"""
+    try:
+        from datetime import date, timedelta
+        
+        end_date = date.today() - timedelta(days=1)
+        start_date = end_date - timedelta(days=days_back)
+        
+        # Converter string de dimensões para lista
+        dimensions_list = [d.strip() for d in dimensions.split(",")]
+        
+        performance_data = google_connector.get_gsc_performance(
+            site_url=settings.secure_gsc_site_url,
+            start_date=start_date,
+            end_date=end_date,
+            dimensions=dimensions_list,
+            row_limit=limit
+        )
+        
+        return performance_data
+        
+    except Exception as e:
+        logger.error(f"Erro ao buscar performance GSC: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/google-data/ga4/report")
+async def get_ga4_report(
+    days_back: int = 30,
+    metrics: str = "sessions,users,pageviews",
+    dimensions: str = "pagePath",
+    limit: int = 100
+):
+    """Busca relatório do Google Analytics 4"""
+    try:
+        property_id = settings.secure_ga4_property_id
+        if not property_id:
+            raise HTTPException(status_code=400, detail="GA4_PROPERTY_ID não configurado")
+        
+        # Converter strings para listas
+        metrics_list = [m.strip() for m in metrics.split(",")]
+        dimensions_list = [d.strip() for d in dimensions.split(",")]
+        
+        report_data = google_connector.get_ga4_report(
+            property_id=property_id,
+            start_date=f"{days_back}daysAgo",
+            end_date="yesterday",
+            metrics=metrics_list,
+            dimensions=dimensions_list,
+            limit=limit
+        )
+        
+        return report_data
+        
+    except Exception as e:
+        logger.error(f"Erro ao buscar relatório GA4: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/google-data/insights/content")
+async def get_content_insights(days_back: int = 30):
+    """Combina dados GSC + GA4 para insights de conteúdo"""
+    try:
+        property_id = settings.secure_ga4_property_id
+        if not property_id:
+            raise HTTPException(status_code=400, detail="GA4_PROPERTY_ID não configurado")
+        
+        insights = google_connector.get_content_insights(
+            site_url=settings.secure_gsc_site_url,
+            property_id=property_id,
+            days_back=days_back
+        )
+        
+        return insights
+        
+    except Exception as e:
+        logger.error(f"Erro ao gerar insights de conteúdo: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/admin/google-data/configure")
+async def configure_google_data(config_data: dict):
+    """Configura parâmetros do Google Data (GA4 Property ID, etc.)"""
+    try:
+        updated_configs = []
+        
+        # Configurar GA4 Property ID
+        if "ga4_property_id" in config_data:
+            success = db.set_secure_config(
+                "ga4_property_id",
+                config_data["ga4_property_id"],
+                "Google Analytics 4 Property ID"
+            )
+            if success:
+                updated_configs.append("ga4_property_id")
+        
+        # Configurar GSC Site URL
+        if "gsc_site_url" in config_data:
+            success = db.set_secure_config(
+                "gsc_site_url",
+                config_data["gsc_site_url"],
+                "Google Search Console Site URL"
+            )
+            if success:
+                updated_configs.append("gsc_site_url")
+        
+        return {
+            "message": "Configurações Google Data atualizadas",
+            "updated_configs": updated_configs
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro ao configurar Google Data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/google-data/dashboard")
+async def get_google_data_dashboard(days_back: int = 30):
+    """Dashboard completo com dados GSC + GA4"""
+    try:
+        property_id = settings.secure_ga4_property_id
+        if not property_id:
+            return {"error": "GA4_PROPERTY_ID não configurado"}
+        
+        from datetime import date, timedelta
+        
+        # Status da conexão
+        connection_status = google_connector.test_connection()
+        
+        dashboard_data = {
+            "connection_status": connection_status,
+            "period": f"Last {days_back} days",
+            "gsc_data": {},
+            "ga4_data": {},
+            "combined_insights": {}
+        }
+        
+        if connection_status.get("gsc_connected"):
+            # Dados GSC - Top Queries
+            end_date = date.today() - timedelta(days=1)
+            start_date = end_date - timedelta(days=days_back)
+            
+            gsc_queries = google_connector.get_gsc_performance(
+                site_url=settings.secure_gsc_site_url,
+                start_date=start_date,
+                end_date=end_date,
+                dimensions=['query'],
+                row_limit=20
+            )
+            
+            gsc_pages = google_connector.get_gsc_performance(
+                site_url=settings.secure_gsc_site_url,
+                start_date=start_date,
+                end_date=end_date,
+                dimensions=['page'],
+                row_limit=20
+            )
+            
+            dashboard_data["gsc_data"] = {
+                "top_queries": gsc_queries.get("data", [])[:10],
+                "top_pages": gsc_pages.get("data", [])[:10],
+                "summary": gsc_queries.get("summary", {})
+            }
+        
+        if connection_status.get("ga4_connected"):
+            # Dados GA4 - Overview
+            ga4_overview = google_connector.get_ga4_report(
+                property_id=property_id,
+                start_date=f"{days_back}daysAgo",
+                end_date="yesterday",
+                metrics=['sessions', 'users', 'pageviews', 'bounceRate'],
+                dimensions=['pagePath'],
+                limit=20
+            )
+            
+            dashboard_data["ga4_data"] = {
+                "overview": ga4_overview.get("totals", {}),
+                "top_pages": ga4_overview.get("data", [])[:10]
+            }
+        
+        # Insights combinados
+        if connection_status.get("gsc_connected") and connection_status.get("ga4_connected"):
+            combined_insights = google_connector.get_content_insights(
+                site_url=settings.secure_gsc_site_url,
+                property_id=property_id,
+                days_back=days_back
+            )
+            
+            dashboard_data["combined_insights"] = combined_insights.get("insights", [])[:10]
+        
+        return dashboard_data
+        
+    except Exception as e:
+        logger.error(f"Erro ao gerar dashboard Google Data: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
