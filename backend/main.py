@@ -12,6 +12,7 @@ import hashlib
 from datetime import datetime, timedelta
 import httpx
 import os
+import google.generativeai as genai
 
 try:
     # Tentar imports relativos primeiro (produção)
@@ -242,12 +243,14 @@ async def health_check():
         checks["database"] = False
         checks["auth"] = False
     
-    # Testar WordPress
+    # Testar WordPress - usando nova instância para evitar cache
     try:
-        wp_status = wp_publisher.test_connection()
+        from modules.wordpress_publisher import WordPressPublisher
+        wp_test = WordPressPublisher()
+        wp_status = wp_test.test_connection()
         checks["wordpress"] = wp_status if isinstance(wp_status, bool) else wp_status.get("success", False)
     except Exception as e:
-        logger.error(f"Erro no health check WordPress: {e}")
+        logger.error(f"❌ Erro no health check WordPress: {e}")
         checks["wordpress"] = False
     
     # Testar Gemini AI
@@ -3333,6 +3336,240 @@ async def system_diagnostic_complete():
         "status": "success",
         "diagnostic": diagnostic_result
     }
+
+@app.get("/debug/wordpress")
+async def debug_wordpress():
+    """Endpoint para debugar WordPress"""
+    try:
+        from modules.wordpress_publisher import wp_publisher
+        
+        # Testar diretamente
+        result = wp_publisher.test_connection()
+        
+        return {
+            "wp_test_result": result,
+            "wp_test_type": str(type(result)),
+            "wp_base_url": wp_publisher.base_url,
+            "wp_api_url": wp_publisher.api_url,
+            "has_auth": wp_publisher.auth is not None,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
+
+@app.get("/admin/diagnostic-complete")
+async def diagnostic_complete():
+    """
+    🔍 DIAGNÓSTICO COMPLETO DO SISTEMA
+    Endpoint que você pediu - mostra TUDO sobre o sistema
+    """
+    diagnostic = {
+        "timestamp": datetime.now().isoformat(),
+        "system_info": {
+            "app_name": settings.APP_NAME,
+            "version": settings.APP_VERSION,
+            "environment": settings.ENVIRONMENT,
+            "port": settings.PORT,
+            "base_url": settings.BASE_URL
+        },
+        "credentials_validation": {},
+        "database_status": {},
+        "integrations_status": {},
+        "health_checks": {},
+        "configuration_summary": {},
+        "recommendations": []
+    }
+    
+    # 1. VALIDAÇÃO DE CREDENCIAIS
+    try:
+        validation = settings.validate_required_credentials()
+        diagnostic["credentials_validation"] = {
+            "is_valid": validation["is_valid"],
+            "missing_count": validation["total_missing"],
+            "missing_credentials": validation["missing_required"],
+            "all_credentials_status": validation["all_status"]
+        }
+        
+        if not validation["is_valid"]:
+            diagnostic["recommendations"].append(f"❌ CRÍTICO: {validation['total_missing']} credenciais faltando")
+        else:
+            diagnostic["recommendations"].append("✅ Todas as credenciais obrigatórias estão presentes")
+            
+    except Exception as e:
+        diagnostic["credentials_validation"]["error"] = str(e)
+        diagnostic["recommendations"].append(f"❌ Erro ao validar credenciais: {e}")
+    
+    # 2. STATUS DO BANCO DE DADOS
+    try:
+        # Testar conexão Supabase
+        test_query = db.client.from_("email_cache").select("id").limit(1).execute()
+        diagnostic["database_status"]["supabase_connection"] = "✅ OK"
+        diagnostic["database_status"]["email_cache_accessible"] = "✅ OK"
+        
+        # Contar registros principais
+        email_count = db.client.from_("email_cache").select("id", count="exact").execute()
+        diagnostic["database_status"]["total_emails"] = email_count.count if email_count.count else 0
+        
+        # Testar secure_config se existir
+        try:
+            secure_count = db.client.from_("secure_config").select("key", count="exact").execute()
+            diagnostic["database_status"]["secure_configs"] = secure_count.count if secure_count.count else 0
+        except:
+            diagnostic["database_status"]["secure_configs"] = "⚠️ Tabela não existe"
+            
+    except Exception as e:
+        diagnostic["database_status"]["error"] = str(e)
+        diagnostic["recommendations"].append(f"❌ Erro de banco de dados: {e}")
+    
+    # 3. STATUS DAS INTEGRAÇÕES
+    integrations = {
+        "google_ai": {"status": "❌", "details": ""},
+        "gmail": {"status": "❌", "details": ""},
+        "wordpress": {"status": "❌", "details": ""},
+        "google_data": {"status": "❌", "details": ""}
+    }
+    
+    # Testar Google AI
+    try:
+        if settings.secure_google_ai_api_key:
+            # Usar o ai_processor que já tem o genai configurado
+            # Testar gerando um embedding simples
+            test_embedding = ai_processor.generate_embedding("teste")
+            if test_embedding and len(test_embedding) > 0:
+                integrations["google_ai"] = {
+                    "status": "✅ OK",
+                    "details": f"API funcionando, embedding gerado ({len(test_embedding)} dimensões)",
+                    "api_key_preview": settings.secure_google_ai_api_key[:20] + "..."
+                }
+            else:
+                integrations["google_ai"]["details"] = "API não responde corretamente"
+        else:
+            integrations["google_ai"]["details"] = "API Key não configurada"
+    except Exception as e:
+        integrations["google_ai"]["details"] = f"Erro: {str(e)}"
+    
+    # Testar Gmail
+    try:
+        if settings.secure_gmail_client_id and settings.secure_gmail_client_secret:
+            integrations["gmail"] = {
+                "status": "🔧 Configurado",
+                "details": "Credenciais OK, precisa OAuth",
+                "client_id_preview": settings.secure_gmail_client_id[:20] + "...",
+                "redirect_uri": settings.GMAIL_REDIRECT_URI
+            }
+            
+            # Verificar se já tem OAuth
+            if gmail_client.is_authenticated():
+                integrations["gmail"]["status"] = "✅ Autenticado"
+                integrations["gmail"]["details"] = "OAuth completo"
+        else:
+            integrations["gmail"]["details"] = "Credenciais não configuradas"
+    except Exception as e:
+        integrations["gmail"]["details"] = f"Erro: {str(e)}"
+    
+    # Testar WordPress
+    try:
+        if settings.secure_wordpress_username and settings.secure_wordpress_password:
+            wp_test = wp_publisher.test_connection()
+            if wp_test and (wp_test is True or wp_test.get("success", False)):
+                integrations["wordpress"] = {
+                    "status": "✅ OK",
+                    "details": "API funcionando",
+                    "url": settings.WORDPRESS_URL,
+                    "username": settings.secure_wordpress_username
+                }
+            else:
+                integrations["wordpress"]["details"] = "Erro na conexão API"
+        else:
+            integrations["wordpress"]["details"] = "Credenciais não configuradas"
+    except Exception as e:
+        integrations["wordpress"]["details"] = f"Erro: {str(e)}"
+    
+    # Testar Google Data
+    try:
+        if settings.secure_gsc_site_url and settings.secure_ga4_property_id:
+            integrations["google_data"] = {
+                "status": "🔧 Configurado",
+                "details": "Credenciais OK, precisa OAuth",
+                "gsc_site": settings.secure_gsc_site_url,
+                "ga4_property": settings.secure_ga4_property_id
+            }
+        else:
+            integrations["google_data"]["details"] = "Credenciais opcionais não configuradas"
+    except Exception as e:
+        integrations["google_data"]["details"] = f"Erro: {str(e)}"
+    
+    diagnostic["integrations_status"] = integrations
+    
+    # 4. HEALTH CHECKS
+    try:
+        health_response = await health_check()
+        diagnostic["health_checks"] = health_response
+    except Exception as e:
+        diagnostic["health_checks"]["error"] = str(e)
+    
+    # 5. CONFIGURAÇÃO RESUMIDA
+    diagnostic["configuration_summary"] = {
+        "urls": {
+            "base_url": settings.BASE_URL,
+            "wordpress_url": settings.WORDPRESS_URL,
+            "gmail_redirect": settings.GMAIL_REDIRECT_URI,
+            "supabase_url": settings.SUPABASE_URL
+        },
+        "ai_config": {
+            "gemini_model": settings.GEMINI_MODEL,
+            "embedding_model": settings.EMBEDDING_MODEL,
+            "max_tokens": settings.MAX_TOKENS_PER_REQUEST
+        },
+        "feature_flags": {
+            "google_data": settings.ENABLE_GOOGLE_DATA_INTEGRATION,
+            "wordpress": settings.ENABLE_WORDPRESS_PUBLISHING,
+            "email_processing": settings.ENABLE_EMAIL_PROCESSING,
+            "user_management": settings.ENABLE_USER_MANAGEMENT,
+            "analytics": settings.ENABLE_ANALYTICS_DASHBOARD,
+            "meta_integration": settings.ENABLE_META_INTEGRATION
+        }
+    }
+    
+    # 6. RECOMENDAÇÕES FINAIS
+    working_integrations = len([i for i in integrations.values() if "✅" in i["status"]])
+    total_integrations = len(integrations)
+    
+    if working_integrations == total_integrations:
+        diagnostic["recommendations"].append("🎉 Todas as integrações funcionando!")
+    elif working_integrations >= total_integrations / 2:
+        diagnostic["recommendations"].append(f"⚠️ {working_integrations}/{total_integrations} integrações funcionando")
+    else:
+        diagnostic["recommendations"].append(f"❌ CRÍTICO: Apenas {working_integrations}/{total_integrations} integrações funcionando")
+    
+    # Score geral
+    total_checks = 0
+    passed_checks = 0
+    
+    if diagnostic["credentials_validation"].get("is_valid"):
+        passed_checks += 1
+    total_checks += 1
+    
+    if "✅" in str(diagnostic["database_status"]):
+        passed_checks += 1
+    total_checks += 1
+    
+    passed_checks += working_integrations
+    total_checks += total_integrations
+    
+    health_score = (passed_checks / total_checks * 100) if total_checks > 0 else 0
+    
+    diagnostic["overall_score"] = {
+        "score": f"{health_score:.1f}%",
+        "status": "🟢 EXCELENTE" if health_score >= 90 else "🟡 BOM" if health_score >= 70 else "🔴 CRÍTICO",
+        "passed_checks": passed_checks,
+        "total_checks": total_checks
+    }
+    
+    return diagnostic
 
 if __name__ == "__main__":
     import uvicorn

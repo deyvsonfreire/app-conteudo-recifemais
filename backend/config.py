@@ -2,13 +2,16 @@
 Configurações da aplicação RecifeMais Conteúdo
 """
 import os
+import logging
 from pydantic_settings import BaseSettings
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 class Settings(BaseSettings):
     # Configurações básicas
     APP_NAME: str = "RecifeMais Conteúdo"
-    APP_VERSION: str = "2.5.0"
+    APP_VERSION: str = "2.5.1-SIMPLIFIED"  # Versão simplificada
     DEBUG: bool = False
     ENVIRONMENT: str = "development"
     PORT: int = 8001
@@ -24,24 +27,26 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_KEY: str
     SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
     
-    # Google AI (Gemini) - PRIORIDADE 1
-    GOOGLE_AI_API_KEY: Optional[str] = None
+    # ==========================================
+    # CREDENCIAIS DIRETAS DO .ENV (SIMPLIFICADO)
+    # ==========================================
     
-    # Gmail OAuth - PRIORIDADE 1
-    GMAIL_CLIENT_ID: Optional[str] = None
-    GMAIL_CLIENT_SECRET: Optional[str] = None
+    # Google AI (Gemini) - OBRIGATÓRIO
+    GOOGLE_AI_API_KEY: str
     
-    # Google Data - PRIORIDADE 2
+    # Gmail OAuth - OBRIGATÓRIO
+    GMAIL_CLIENT_ID: str
+    GMAIL_CLIENT_SECRET: str
+    
+    # WordPress - OBRIGATÓRIO
+    WORDPRESS_USERNAME: str
+    WORDPRESS_PASSWORD: str
+    
+    # Google Data - OPCIONAL
     GSC_SITE_URL: Optional[str] = None
     GA4_PROPERTY_ID: Optional[str] = None
     
-    # WordPress
-    WORDPRESS_USERNAME: Optional[str] = None
-    WORDPRESS_PASSWORD: Optional[str] = None
-    
-    # ===========================================
-    # META/FACEBOOK INTEGRATION
-    # ===========================================
+    # Meta/Facebook - OPCIONAL
     FACEBOOK_APP_ID: Optional[str] = None
     FACEBOOK_APP_SECRET: Optional[str] = None
     FACEBOOK_ACCESS_TOKEN: Optional[str] = None
@@ -80,95 +85,125 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
-        # Tentar carregar de múltiplos arquivos de configuração
-        env_files = [".env", "config.local.env", "config.prod.env"]
+        case_sensitive = True
     
-    def get_secure_credential(self, key: str) -> Optional[str]:
-        """
-        Busca credencial segura do banco de dados com fallback para .env
-        
-        Args:
-            key: Nome da chave da credencial
-            
-        Returns:
-            Valor da credencial ou None
-        """
-        try:
-            # Import lazy para evitar dependência circular
-            from .secure_config import get_secure_config
-            
-            # Tentar buscar do banco primeiro
-            value = get_secure_config(key)
-            if value:
-                return value
-            
-            # Fallback para valor do .env
-            env_value = getattr(self, key.upper(), None)
-            return env_value
-            
-        except Exception:
-            # Se houver erro (circular import, etc), usar valor do .env
-            return getattr(self, key.upper(), None)
+    # ==========================================
+    # PROPRIEDADES SIMPLIFICADAS (SEM SUPABASE)
+    # ==========================================
     
     @property
-    def secure_google_ai_api_key(self) -> Optional[str]:
-        """Chave API Google AI (do banco ou .env)"""
-        return self.get_secure_credential("google_ai_api_key") or self.GOOGLE_AI_API_KEY
+    def secure_google_ai_api_key(self) -> str:
+        """API Key do Google AI (Gemini) - DIRETO DO .ENV"""
+        return self.GOOGLE_AI_API_KEY
     
     @property
-    def secure_gmail_client_id(self) -> Optional[str]:
-        """Client ID Gmail (do banco ou .env)"""
-        return self.get_secure_credential("gmail_client_id") or self.GMAIL_CLIENT_ID
+    def secure_gmail_client_id(self) -> str:
+        """Client ID OAuth Gmail - DIRETO DO .ENV"""
+        return self.GMAIL_CLIENT_ID
     
     @property
-    def secure_gmail_client_secret(self) -> Optional[str]:
-        """Client Secret Gmail (do banco ou .env)"""
-        return self.get_secure_credential("gmail_client_secret") or self.GMAIL_CLIENT_SECRET
+    def secure_gmail_client_secret(self) -> str:
+        """Client Secret OAuth Gmail - DIRETO DO .ENV"""
+        return self.GMAIL_CLIENT_SECRET
     
     @property
-    def secure_wordpress_username(self) -> Optional[str]:
-        """Username WordPress (do banco ou .env)"""
-        return self.get_secure_credential("wordpress_username") or self.WORDPRESS_USERNAME
+    def secure_wordpress_username(self) -> str:
+        """Username WordPress - DIRETO DO .ENV"""
+        return self.WORDPRESS_USERNAME
     
     @property
-    def secure_wordpress_password(self) -> Optional[str]:
-        """Password WordPress (do banco ou .env)"""
-        return self.get_secure_credential("wordpress_password") or self.WORDPRESS_PASSWORD
+    def secure_wordpress_password(self) -> str:
+        """Password WordPress - DIRETO DO .ENV"""
+        return self.WORDPRESS_PASSWORD
     
     @property
-    def secure_supabase_service_key(self) -> Optional[str]:
-        """Service Key Supabase (do banco ou .env)"""
-        return self.get_secure_credential("supabase_service_key") or self.SUPABASE_SERVICE_KEY
-    
-    @property
-    def secure_gsc_site_url(self) -> str:
-        """URL do site no Google Search Console"""
-        return self.get_secure_credential("gsc_site_url") or self.GSC_SITE_URL
+    def secure_gsc_site_url(self) -> Optional[str]:
+        """URL do site no Google Search Console - DIRETO DO .ENV"""
+        return self.GSC_SITE_URL
     
     @property
     def secure_ga4_property_id(self) -> Optional[str]:
-        """Property ID do Google Analytics 4"""
-        return self.get_secure_credential("ga4_property_id") or self.GA4_PROPERTY_ID
+        """Property ID do Google Analytics 4 - DIRETO DO .ENV"""
+        return self.GA4_PROPERTY_ID
     
     @property
     def secure_facebook_app_id(self) -> Optional[str]:
-        """ID do aplicativo Facebook"""
-        return self.get_secure_credential("facebook_app_id") or self.FACEBOOK_APP_ID
+        """ID do aplicativo Facebook - DIRETO DO .ENV"""
+        return self.FACEBOOK_APP_ID
     
     @property
     def secure_facebook_app_secret(self) -> Optional[str]:
-        """Chave secreta do aplicativo Facebook"""
-        return self.get_secure_credential("facebook_app_secret") or self.FACEBOOK_APP_SECRET
+        """Chave secreta do aplicativo Facebook - DIRETO DO .ENV"""
+        return self.FACEBOOK_APP_SECRET
     
     @property
     def secure_facebook_access_token(self) -> Optional[str]:
-        """Token de acesso do Facebook"""
-        return self.get_secure_credential("facebook_access_token") or self.FACEBOOK_ACCESS_TOKEN
+        """Token de acesso do Facebook - DIRETO DO .ENV"""
+        return self.FACEBOOK_ACCESS_TOKEN
     
     @property
     def secure_instagram_account_id(self) -> Optional[str]:
-        """ID da conta Instagram Business"""
-        return self.get_secure_credential("instagram_account_id") or self.INSTAGRAM_ACCOUNT_ID
+        """ID da conta Instagram Business - DIRETO DO .ENV"""
+        return self.INSTAGRAM_ACCOUNT_ID
+
+    def validate_required_credentials(self) -> dict:
+        """Valida se todas as credenciais obrigatórias estão presentes"""
+        missing = []
+        status = {}
+        
+        # Verificar credenciais obrigatórias
+        required_creds = {
+            "GOOGLE_AI_API_KEY": self.GOOGLE_AI_API_KEY,
+            "GMAIL_CLIENT_ID": self.GMAIL_CLIENT_ID,
+            "GMAIL_CLIENT_SECRET": self.GMAIL_CLIENT_SECRET,
+            "WORDPRESS_USERNAME": self.WORDPRESS_USERNAME,
+            "WORDPRESS_PASSWORD": self.WORDPRESS_PASSWORD,
+            "SUPABASE_URL": self.SUPABASE_URL,
+            "SUPABASE_ANON_KEY": self.SUPABASE_ANON_KEY,
+            "SUPABASE_SERVICE_KEY": self.SUPABASE_SERVICE_KEY,
+        }
+        
+        for key, value in required_creds.items():
+            if not value or value.strip() == "":
+                missing.append(key)
+                status[key] = "❌ MISSING"
+            else:
+                status[key] = "✅ OK"
+        
+        # Verificar credenciais opcionais
+        optional_creds = {
+            "GSC_SITE_URL": self.GSC_SITE_URL,
+            "GA4_PROPERTY_ID": self.GA4_PROPERTY_ID,
+            "FACEBOOK_APP_ID": self.FACEBOOK_APP_ID,
+        }
+        
+        for key, value in optional_creds.items():
+            if value and value.strip():
+                status[key] = "✅ OK (Optional)"
+            else:
+                status[key] = "⚠️ NOT SET (Optional)"
+        
+        return {
+            "missing_required": missing,
+            "total_missing": len(missing),
+            "all_status": status,
+            "is_valid": len(missing) == 0
+        }
 
 # Instância global das configurações
-settings = Settings() 
+settings = Settings()
+
+# Log de inicialização
+logger.info(f"🔧 Configurações carregadas - Versão {settings.APP_VERSION}")
+logger.info(f"📍 Ambiente: {settings.ENVIRONMENT}")
+logger.info(f"🌐 Base URL: {settings.BASE_URL}")
+
+# Validar credenciais na inicialização
+try:
+    validation = settings.validate_required_credentials()
+    if validation["is_valid"]:
+        logger.info("✅ Todas as credenciais obrigatórias estão presentes")
+    else:
+        logger.error(f"❌ Credenciais faltando: {validation['missing_required']}")
+except Exception as e:
+    logger.error(f"❌ Erro ao validar credenciais: {e}") 

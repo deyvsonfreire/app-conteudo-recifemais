@@ -213,6 +213,18 @@ class GmailClient:
             logger.error(f"Erro ao carregar credenciais: {e}")
             return False
     
+    def is_authenticated(self) -> bool:
+        """Verifica se o cliente está autenticado"""
+        try:
+            # Verificar se tem credenciais válidas
+            if not self.credentials:
+                self.load_credentials()
+            
+            return self.credentials and self.credentials.valid
+        except Exception as e:
+            logger.error(f"Erro ao verificar autenticação: {e}")
+            return False
+    
     def authenticate(self) -> bool:
         """Autentica com Gmail"""
         try:

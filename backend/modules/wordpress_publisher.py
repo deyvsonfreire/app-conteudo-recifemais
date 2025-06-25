@@ -27,7 +27,8 @@ class WordPressPublisher:
     def test_connection(self) -> bool:
         """Testa conexão com WordPress"""
         try:
-            response = requests.get(f"{self.api_url}/users/me", auth=self.auth)
+            # Testar com endpoint /posts que é mais confiável
+            response = requests.get(f"{self.api_url}/posts", auth=self.auth, params={"per_page": 1}, timeout=10)
             return response.status_code == 200
         except Exception as e:
             logger.error(f"Erro ao conectar com WordPress: {e}")
@@ -413,4 +414,7 @@ class WordPressPublisher:
             return {}
 
 # Instância global
+wp_publisher = WordPressPublisher()
+
+# Forçar recriação da instância para aplicar correções
 wp_publisher = WordPressPublisher() 

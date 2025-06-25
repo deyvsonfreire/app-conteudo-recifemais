@@ -11,50 +11,107 @@ class ConfigManager {
         this.checkServiceStatus();
     }
 
+    // Funções auxiliares para substituir dependências ausentes
+    showLoading(message) {
+        console.log('⏳ ' + message);
+    }
+
+    hideLoading() {
+        console.log('✅ Carregamento concluído');
+    }
+
+    showToastNotification(message, type = 'info') {
+        console.log(`📢 ${type.toUpperCase()}: ${message}`);
+        if (type === 'error') {
+            alert('Erro: ' + message);
+        } else if (type === 'success') {
+            alert('Sucesso: ' + message);
+        } else {
+            alert(message);
+        }
+    }
+
     setupEventListeners() {
+        console.log('🔧 Configurando event listeners...');
+        
         // WordPress
         const wpForm = document.getElementById('wpConfigForm');
         if (wpForm) {
             wpForm.addEventListener('submit', (e) => this.saveWordPressConfig(e));
+            console.log('✅ WordPress form listener configurado');
+        } else {
+            console.warn('⚠️ WordPress form não encontrado');
         }
 
         const testWpBtn = document.getElementById('testWpConnection');
         if (testWpBtn) {
-            testWpBtn.addEventListener('click', () => this.testWordPressConnection());
+            testWpBtn.addEventListener('click', () => {
+                console.log('🔍 Testando conexão WordPress...');
+                this.testWordPressConnection();
+            });
+            console.log('✅ WordPress test button listener configurado');
+        } else {
+            console.warn('⚠️ WordPress test button não encontrado');
         }
 
         // Gemini
         const geminiForm = document.getElementById('geminiConfigForm');
         if (geminiForm) {
             geminiForm.addEventListener('submit', (e) => this.saveGeminiConfig(e));
+            console.log('✅ Gemini form listener configurado');
+        } else {
+            console.warn('⚠️ Gemini form não encontrado');
         }
 
         const testGeminiBtn = document.getElementById('testGeminiConnection');
         if (testGeminiBtn) {
-            testGeminiBtn.addEventListener('click', () => this.testGeminiConnection());
+            testGeminiBtn.addEventListener('click', () => {
+                console.log('🔍 Testando conexão Gemini...');
+                this.testGeminiConnection();
+            });
+            console.log('✅ Gemini test button listener configurado');
+        } else {
+            console.warn('⚠️ Gemini test button não encontrado');
         }
 
         // Gmail
         const authenticateGmailBtn = document.getElementById('authenticateGmail');
         if (authenticateGmailBtn) {
-            authenticateGmailBtn.addEventListener('click', () => this.authenticateGmail());
+            authenticateGmailBtn.addEventListener('click', () => {
+                console.log('🔐 Iniciando autenticação Gmail...');
+                this.authenticateGmail();
+            });
+            console.log('✅ Gmail auth button listener configurado');
+        } else {
+            console.warn('⚠️ Gmail auth button não encontrado');
         }
 
         // Google Data
         const googleDataForm = document.getElementById('googleDataConfigForm');
         if (googleDataForm) {
             googleDataForm.addEventListener('submit', (e) => this.saveGoogleDataConfig(e));
+            console.log('✅ Google Data form listener configurado');
+        } else {
+            console.warn('⚠️ Google Data form não encontrado');
         }
 
         const authenticateGoogleDataBtn = document.getElementById('authenticateGoogleData');
         if (authenticateGoogleDataBtn) {
-            authenticateGoogleDataBtn.addEventListener('click', () => this.authenticateGoogleData());
+            authenticateGoogleDataBtn.addEventListener('click', () => {
+                console.log('🔐 Iniciando autenticação Google Data...');
+                this.authenticateGoogleData();
+            });
+            console.log('✅ Google Data auth button listener configurado');
+        } else {
+            console.warn('⚠️ Google Data auth button não encontrado');
         }
+        
+        console.log('🎯 Event listeners configurados com sucesso!');
     }
 
     async loadConfigurations() {
         try {
-            showLoading('Carregando configurações...');
+            this.showLoading('Carregando configurações...');
             
             // Carregar configurações do backend
             const response = await authManager.apiCall('/admin/secure-config');
@@ -70,9 +127,9 @@ class ConfigManager {
             
         } catch (error) {
             console.error('Erro ao carregar configurações:', error);
-            appController.showToastNotification('Erro ao carregar configurações: ' + error.message, 'error');
+            this.showToastNotification('Erro ao carregar configurações: ' + error.message, 'error');
         } finally {
-            hideLoading();
+            this.hideLoading();
         }
     }
 
@@ -80,20 +137,41 @@ class ConfigManager {
         // WordPress - carregar dados existentes
         const wpUrlField = document.getElementById('wpUrl');
         const wpUsernameField = document.getElementById('wpUsername');
+        const wpPasswordField = document.getElementById('wpPassword');
         
         if (wpUrlField) {
             wpUrlField.value = this.getConfigValue('wordpress_url') || 'https://recifemais.com.br';
         }
         
         if (wpUsernameField) {
-            wpUsernameField.value = this.getConfigValue('wordpress_username') || '';
+            const username = this.getConfigValue('wordpress_username');
+            if (username) {
+                wpUsernameField.value = username;
+                wpUsernameField.style.backgroundColor = '#f0f9ff';
+                wpUsernameField.title = `Usuário configurado: ${username}`;
+            }
+        }
+        
+        if (wpPasswordField) {
+            const hasPassword = this.getConfigValue('wordpress_password');
+            if (hasPassword) {
+                wpPasswordField.value = '••••••••••••••••';
+                wpPasswordField.placeholder = 'Senha configurada (digite nova para alterar)';
+                wpPasswordField.style.backgroundColor = '#f0f9ff';
+                wpPasswordField.title = 'Senha já configurada';
+            }
         }
         
         // Gemini AI
         const geminiKeyField = document.getElementById('geminiApiKey');
-        if (geminiKeyField && this.getConfigValue('google_ai_api_key')) {
-            geminiKeyField.value = '••••••••••••••••'; // Mascarar chave existente
-            geminiKeyField.placeholder = 'Chave configurada (digite nova para alterar)';
+        if (geminiKeyField) {
+            const hasKey = this.getConfigValue('google_ai_api_key');
+            if (hasKey) {
+                geminiKeyField.value = '••••••••••••••••••••••••••••••••••••••••';
+                geminiKeyField.placeholder = 'API Key configurada (digite nova para alterar)';
+                geminiKeyField.style.backgroundColor = '#f0fdf4';
+                geminiKeyField.title = `API Key configurada: ${hasKey.substring(0, 8)}...${hasKey.substring(hasKey.length - 4)}`;
+            }
         }
         
         // Google Data
@@ -101,11 +179,21 @@ class ConfigManager {
         const gscSiteField = document.getElementById('gscSiteUrl');
         
         if (ga4PropertyField) {
-            ga4PropertyField.value = this.getConfigValue('ga4_property_id') || '';
+            const propertyId = this.getConfigValue('ga4_property_id');
+            if (propertyId) {
+                ga4PropertyField.value = propertyId;
+                ga4PropertyField.style.backgroundColor = '#f0f9ff';
+                ga4PropertyField.title = `Property ID configurado: ${propertyId}`;
+            }
         }
         
         if (gscSiteField) {
-            gscSiteField.value = this.getConfigValue('gsc_site_url') || 'https://recifemais.com.br/';
+            const siteUrl = this.getConfigValue('gsc_site_url') || 'https://recifemais.com.br/';
+            gscSiteField.value = siteUrl;
+            if (this.getConfigValue('gsc_site_url')) {
+                gscSiteField.style.backgroundColor = '#f0f9ff';
+                gscSiteField.title = `Site URL configurado: ${siteUrl}`;
+            }
         }
     }
 
@@ -231,7 +319,7 @@ class ConfigManager {
 
     async testWordPressConnection() {
         try {
-            showLoading('Testando conexão com WordPress...');
+            console.log('🔍 Iniciando teste de conexão WordPress...');
             
             const response = await authManager.apiCall('/wordpress/posts', {
                 method: 'GET'
@@ -239,16 +327,15 @@ class ConfigManager {
 
             if (response.ok) {
                 const result = await response.json();
-                appController.showToastNotification(`WordPress conectado com sucesso! ${result.posts?.length || 0} posts encontrados.`, 'success');
+                console.log('✅ WordPress conectado:', result);
+                alert(`WordPress conectado com sucesso! ${result.posts?.length || 0} posts encontrados.`);
             } else {
                 throw new Error('Erro na conexão com WordPress');
             }
             
         } catch (error) {
-            console.error('Erro ao testar WordPress:', error);
-            appController.showToastNotification('Erro na conexão: ' + error.message, 'error');
-        } finally {
-            hideLoading();
+            console.error('❌ Erro ao testar WordPress:', error);
+            alert('Erro na conexão: ' + error.message);
         }
     }
 
@@ -293,7 +380,7 @@ class ConfigManager {
 
     async testGeminiConnection() {
         try {
-            showLoading('Testando conexão com Gemini AI...');
+            console.log('🔍 Iniciando teste de conexão Gemini AI...');
             
             const response = await authManager.apiCall('/suggest-topics', {
                 method: 'POST',
@@ -305,23 +392,22 @@ class ConfigManager {
 
             if (response.ok) {
                 const result = await response.json();
-                appController.showToastNotification('Gemini AI conectado e funcionando!', 'success');
+                console.log('✅ Gemini AI conectado:', result);
+                alert('Gemini AI conectado e funcionando!');
             } else {
                 throw new Error('Erro na conexão com Gemini');
             }
             
         } catch (error) {
-            console.error('Erro ao testar Gemini:', error);
-            appController.showToastNotification('Erro na conexão: ' + error.message, 'error');
-        } finally {
-            hideLoading();
+            console.error('❌ Erro ao testar Gemini:', error);
+            alert('Erro na conexão: ' + error.message);
         }
     }
 
     // Gmail Authentication - Um clique
     async authenticateGmail() {
         try {
-            showLoading('Iniciando autenticação do Gmail...');
+            console.log('🔐 Iniciando autenticação do Gmail...');
             
             const response = await authManager.apiCall('/auth/gmail');
             
@@ -332,22 +418,22 @@ class ConfigManager {
                     // Abrir URL de autenticação em nova janela
                     const authWindow = window.open(result.auth_url, 'gmail_auth', 'width=600,height=600,scrollbars=yes,resizable=yes');
                     
-                    appController.showToastNotification('Janela de autenticação aberta. Complete o processo e retorne aqui.', 'info');
+                    console.log('📱 Janela de autenticação aberta');
+                    alert('Janela de autenticação aberta. Complete o processo e retorne aqui.');
                     
                     // Verificar status periodicamente
                     this.checkGmailAuthStatus(authWindow);
                 } else {
-                    appController.showToastNotification('Gmail já está autenticado!', 'success');
+                    console.log('✅ Gmail já autenticado');
+                    alert('Gmail já está autenticado!');
                 }
             } else {
                 throw new Error('Erro ao iniciar autenticação');
             }
             
         } catch (error) {
-            console.error('Erro na autenticação Gmail:', error);
-            appController.showToastNotification('Erro na autenticação: ' + error.message, 'error');
-        } finally {
-            hideLoading();
+            console.error('❌ Erro na autenticação Gmail:', error);
+            alert('Erro na autenticação: ' + error.message);
         }
     }
 
@@ -364,10 +450,12 @@ class ConfigManager {
                         if (response.ok) {
                             const status = await response.json();
                             if (status.authenticated) {
-                                appController.showToastNotification('Gmail autenticado com sucesso!', 'success');
+                                console.log('✅ Gmail autenticado com sucesso!');
+                                alert('Gmail autenticado com sucesso!');
                                 this.checkServiceStatus();
                             } else {
-                                appController.showToastNotification('Autenticação cancelada ou falhou.', 'warning');
+                                console.log('⚠️ Autenticação Gmail cancelada');
+                                alert('Autenticação cancelada ou falhou.');
                             }
                         }
                     }, 2000);
@@ -431,7 +519,7 @@ class ConfigManager {
 
     async authenticateGoogleData() {
         try {
-            showLoading('Iniciando autenticação do Google Data...');
+            console.log('🔐 Iniciando autenticação do Google Data...');
             
             const response = await authManager.apiCall('/auth/google');
             
@@ -442,22 +530,22 @@ class ConfigManager {
                     // Abrir URL de autenticação em nova janela
                     const authWindow = window.open(result.auth_url, 'google_data_auth', 'width=600,height=600,scrollbars=yes,resizable=yes');
                     
-                    appController.showToastNotification('Janela de autenticação aberta. Complete o processo e retorne aqui.', 'info');
+                    console.log('📱 Janela de autenticação Google Data aberta');
+                    alert('Janela de autenticação aberta. Complete o processo e retorne aqui.');
                     
                     // Verificar status periodicamente
                     this.checkGoogleDataAuthStatus(authWindow);
                 } else {
-                    appController.showToastNotification('Google Data já está autenticado!', 'success');
+                    console.log('✅ Google Data já autenticado');
+                    alert('Google Data já está autenticado!');
                 }
             } else {
                 throw new Error('Erro ao iniciar autenticação');
             }
             
         } catch (error) {
-            console.error('Erro na autenticação Google Data:', error);
-            appController.showToastNotification('Erro na autenticação: ' + error.message, 'error');
-        } finally {
-            hideLoading();
+            console.error('❌ Erro na autenticação Google Data:', error);
+            alert('Erro na autenticação: ' + error.message);
         }
     }
 
@@ -474,10 +562,12 @@ class ConfigManager {
                         if (response.ok) {
                             const status = await response.json();
                             if (status.authenticated) {
-                                appController.showToastNotification('Google Analytics conectado com sucesso!', 'success');
+                                console.log('✅ Google Analytics conectado com sucesso!');
+                                alert('Google Analytics conectado com sucesso!');
                                 this.checkServiceStatus();
                             } else {
-                                appController.showToastNotification('Autenticação cancelada ou falhou.', 'warning');
+                                console.log('⚠️ Autenticação Google Data cancelada');
+                                alert('Autenticação cancelada ou falhou.');
                             }
                         }
                     }, 2000);
