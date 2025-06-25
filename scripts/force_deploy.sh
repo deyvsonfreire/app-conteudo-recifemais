@@ -20,6 +20,15 @@ git fetch origin
 git reset --hard origin/main
 git pull origin main
 
+# 3.1. Atualizar variáveis de ambiente se necessário
+echo "🔧 Verificando variáveis de ambiente..."
+if [ -f "config.prod.env" ]; then
+    echo "✅ Usando config.prod.env atualizado"
+    cp config.prod.env .env
+else
+    echo "⚠️ config.prod.env não encontrado, mantendo .env atual"
+fi
+
 # 4. Rebuild completo sem cache
 echo "🔨 Fazendo rebuild completo..."
 docker-compose -f docker-compose.prod.yml build --no-cache

@@ -71,7 +71,7 @@ Substitua o conteúdo do seu arquivo `.env` por:
 
 # Configurações Gerais da Aplicação
 APP_NAME=RecifeMais Conteúdo
-APP_VERSION=2.1.0
+APP_VERSION=2.2.1
 DEBUG=false
 
 # URLs e Endpoints Públicos
