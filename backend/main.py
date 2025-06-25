@@ -1518,42 +1518,56 @@ async def set_secure_config_endpoint(
 async def migrate_credentials_endpoint():
     """Migra credenciais do .env para o banco de dados"""
     try:
-        from .secure_config import secure_config
-        
-        # Credenciais para migrar
+        # Credenciais para migrar do .env
         credentials_map = {
-            "wordpress_username": settings.WORDPRESS_USERNAME,
-            "wordpress_password": settings.WORDPRESS_PASSWORD,
-            "gmail_client_id": settings.GMAIL_CLIENT_ID,
-            "gmail_client_secret": settings.GMAIL_CLIENT_SECRET,
-            "google_ai_api_key": settings.GOOGLE_AI_API_KEY,
-            "supabase_service_key": settings.SUPABASE_SERVICE_KEY
+            "wordpress_username": os.getenv("WORDPRESS_USERNAME"),
+            "wordpress_password": os.getenv("WORDPRESS_PASSWORD"),
+            "gmail_client_id": os.getenv("GMAIL_CLIENT_ID"),
+            "gmail_client_secret": os.getenv("GMAIL_CLIENT_SECRET"),
+            "google_ai_api_key": os.getenv("GOOGLE_AI_API_KEY"),
+            "ga4_property_id": os.getenv("GA4_PROPERTY_ID", ""),
+            "gsc_site_url": os.getenv("GSC_SITE_URL", "https://recifemais.com.br/")
         }
         
         success_count = 0
         results = []
         
         for key, value in credentials_map.items():
-            if value:
-                result = secure_config.set(key, value, f"Migrado automaticamente de .env")
-                if result:
-                    success_count += 1
-                    results.append({"key": key, "status": "success"})
+            try:
+                if value:
+                    # Usar o método da instância db
+                    result = db.set_secure_config(key, value, f"Migrado automaticamente de .env")
+                    if result:
+                        success_count += 1
+                        results.append({"key": key, "status": "✅ success", "message": "Migrado com sucesso"})
+                    else:
+                        results.append({"key": key, "status": "❌ error", "message": "Falha ao salvar no banco"})
                 else:
-                    results.append({"key": key, "status": "error"})
-            else:
-                results.append({"key": key, "status": "empty"})
+                    results.append({"key": key, "status": "⚠️ empty", "message": "Valor vazio no .env"})
+            except Exception as e:
+                results.append({"key": key, "status": "❌ error", "message": f"Erro: {str(e)}"})
         
         return {
-            "message": f"Migração concluída: {success_count}/{len(credentials_map)} credenciais",
+            "message": f"Migração concluída: {success_count}/{len(credentials_map)} credenciais migradas com sucesso",
             "results": results,
             "success_count": success_count,
-            "total_count": len(credentials_map)
+            "total_count": len(credentials_map),
+            "next_steps": [
+                "✅ Verifique o diagnóstico do sistema",
+                "🔧 Configure OAuth para Gmail e Google Analytics",
+                "🧹 Opcional: Remova credenciais do .env após confirmar que tudo funciona"
+            ]
         }
         
     except Exception as e:
         logger.error(f"Erro na migração de credenciais: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return {
+            "message": "Erro na migração de credenciais",
+            "error": str(e),
+            "success_count": 0,
+            "total_count": 0,
+            "results": []
+        }
 
 @app.post("/admin/populate-knowledge-base")
 async def populate_knowledge_base():
@@ -2929,9 +2943,7 @@ async def system_diagnostic():
         # 🗄️ STATUS DO BANCO DE DADOS
         # ==========================================
         try:
-            # Testar conexão com Supabase
-            supabase_client = get_supabase_client()
-            
+            # Usar a instância global do banco
             # Verificar tabelas essenciais
             tables_to_check = ['secure_config', 'email_workflow', 'processed_emails']
             diagnostic["database"]["connection"] = "✅ CONECTADO"
@@ -2939,7 +2951,7 @@ async def system_diagnostic():
             
             for table in tables_to_check:
                 try:
-                    result = supabase_client.table(table).select("*").limit(1).execute()
+                    result = db.client.table(table).select("*").limit(1).execute()
                     diagnostic["database"]["tables"][table] = {
                         "status": "✅ EXISTE",
                         "row_count": len(result.data) if result.data else 0
@@ -2952,7 +2964,7 @@ async def system_diagnostic():
             
             # Verificar credenciais no banco
             try:
-                configs = supabase_client.table('secure_config').select('key').execute()
+                configs = db.client.table('secure_config').select('key').execute()
                 stored_keys = [item['key'] for item in configs.data] if configs.data else []
                 diagnostic["database"]["stored_credentials"] = stored_keys
             except Exception as e:
@@ -2974,7 +2986,7 @@ async def system_diagnostic():
         diagnostic["credentials"] = {}
         for key in credential_keys:
             try:
-                value = await get_secure_config(key)
+                value = db.get_secure_config(key)
                 diagnostic["credentials"][key] = "✅ CONFIGURADO" if value else "❌ NÃO CONFIGURADO"
             except Exception as e:
                 diagnostic["credentials"][key] = f"❌ ERRO: {str(e)}"
@@ -3001,7 +3013,7 @@ async def system_diagnostic():
         
         # Google AI (Gemini)
         try:
-            api_key = await get_secure_config('google_ai_api_key')
+            api_key = db.get_secure_config('google_ai_api_key')
             if api_key:
                 diagnostic["services"]["google_ai"] = {"status": "✅ API KEY CONFIGURADA"}
             else:
@@ -3011,8 +3023,8 @@ async def system_diagnostic():
         
         # Gmail OAuth
         try:
-            client_id = await get_secure_config('gmail_client_id')
-            client_secret = await get_secure_config('gmail_client_secret')
+            client_id = db.get_secure_config('gmail_client_id')
+            client_secret = db.get_secure_config('gmail_client_secret')
             if client_id and client_secret:
                 diagnostic["services"]["gmail_oauth"] = {"status": "✅ CREDENCIAIS CONFIGURADAS"}
             else:
@@ -3022,8 +3034,8 @@ async def system_diagnostic():
         
         # Google Analytics
         try:
-            ga4_id = await get_secure_config('ga4_property_id')
-            gsc_url = await get_secure_config('gsc_site_url')
+            ga4_id = db.get_secure_config('ga4_property_id')
+            gsc_url = db.get_secure_config('gsc_site_url')
             if ga4_id or gsc_url:
                 diagnostic["services"]["google_analytics"] = {
                     "status": "✅ PARCIALMENTE CONFIGURADO",
