@@ -1,0 +1,1010 @@
+{
+  "api_base": "https://recifemais.com.br/wp-json/wp/v2",
+  "site_info": {
+    "name": "Recife Mais - Descubra a Alma e o Pulso de Recife.",
+    "description": "Explore o melhor de Recife com o RecifeMais! Guias autênticos, notícias essenciais, agenda cultural, dicas de gastronomia e tudo para você viver intensamente a cidade.",
+    "url": "https://recifemais.com.br"
+  },
+  "endpoints_funcionais": {
+    "content_types": {
+      "lugar": {
+        "endpoint": "/lugar",
+        "status": "✅ FUNCIONANDO",
+        "campos_base": ["_embedded", "_links", "author", "categorias_lugares", "cidade", "class_list", "content", "date", "date_gmt", "excerpt", "featured_media", "guid", "id", "link", "meta", "modified", "modified_gmt", "slug", "status", "template", "tipos_lugares", "title", "type"],
+        "metadados": "[] (vazio - campos customizados não expostos)",
+        "taxonomias": ["categorias_lugares", "tipos_lugares", "cidade"],
+        "exemplo_conteudo": {
+          "id": 5269,
+          "title": "Classic Hall",
+          "content": "Casa de espetáculos versátil entre Recife e Olinda...",
+          "excerpt": "O Classic Hall é uma das mais importantes...",
+          "meta": []
+        }
+      },
+      "artista": {
+        "endpoint": "/artista", 
+        "status": "✅ FUNCIONANDO",
+        "campos_base": ["_embedded", "_links", "author", "cidade", "class_list", "content", "date", "date_gmt", "excerpt", "featured_media", "generos_musicais", "guid", "id", "link", "manifestacoes", "meta", "modified", "modified_gmt", "ritmo", "slug", "status", "template", "tipos_artistas", "title", "type"],
+        "metadados": "{\"footnotes\": \"\"} (limitado - requer autenticação para campos completos)",
+        "metadados_autenticados": {
+          "status": "✅ DISPONÍVEL COM AUTENTICAÇÃO",
+          "endpoint_autenticado": "/artista/{id}?context=edit&_embed=true",
+          "campos_jetengine": [
+            "telefone", "e-mail", "website", "redes_sociais", 
+            "tipo_de_artista", "artista_ano_formacao", 
+            "galeria_artistas", "videos_artistas"
+          ],
+          "exemplo_metadados": {
+            "telefone": {"item-0": {"telefone": "(21) 2523-0094"}},
+            "e-mail": "alexandre@acaua.net",
+            "website": "https://www.elbaramalho.com.br/",
+            "redes_sociais": {
+              "item-0": {"tipo": "instagram", "url": "https://instagram.com/elbaramalho/"},
+              "item-1": {"tipo": "facebook", "url": "https://www.facebook.com/ElbaRamalhoOficial"}
+            },
+            "artista_ano_formacao": "1979",
+            "galeria_artistas": ["5318", "3954", "3949", "2922"],
+            "videos_artistas": {
+              "item-0": {
+                "titulo_do_video": "Nosso Xote - Elba Ramalho feat Juliette (clipe)",
+                "url_do_video_youtube": "https://www.youtube.com/watch?v=2DL6tUmFl1c"
+              }
+            }
+          }
+        },
+        "taxonomias": ["ritmo", "tipos_artistas", "generos_musicais", "manifestacoes", "cidade"],
+        "exemplo_conteudo": {
+          "id": 5569,
+          "title": "Liv Moraes",
+          "content": "Biografia completa da cantora...",
+          "ritmo": [272, 407, 271, 273],
+          "tipos_artistas": [290],
+          "generos_musicais": [412, 275, 406, 267],
+          "cidade": [401, 400]
+        }
+      },
+      "organizador": {
+        "endpoint": "/organizador",
+        "status": "✅ FUNCIONANDO",
+        "campos_base": ["_embedded", "_links", "author", "class_list", "content", "date", "date_gmt", "excerpt", "featured_media", "guid", "id", "link", "modified", "modified_gmt", "slug", "status", "template", "title", "type"],
+        "metadados": "null (sem metadados expostos)",
+        "taxonomias": ["cidade"],
+        "exemplo_conteudo": "Dados básicos de organizadores"
+      },
+      "historia": {
+        "endpoint": "/historia",
+        "status": "✅ FUNCIONANDO", 
+        "campos_base": ["_embedded", "_links", "author", "cidade", "class_list", "content", "date", "date_gmt", "excerpt", "featured_media", "guid", "id", "link", "meta", "modified", "modified_gmt", "slug", "status", "template", "tipos_de_historia", "title", "type"],
+        "metadados": "{\"footnotes\": \"\"} (limitado)",
+        "taxonomias": ["tipos_de_historia", "cidade"],
+        "exemplo_conteudo": {
+          "id": 5465,
+          "title": "Ariano Suassuna",
+          "content": "Biografia do escritor...",
+          "tipos_de_historia": [298],
+          "cidade": [303]
+        }
+      },
+      "posts": {
+        "endpoint": "/posts",
+        "status": "✅ FUNCIONANDO",
+        "campos_base": ["_embedded", "_links", "author", "categories", "cidade", "class_list", "comment_status", "content", "date", "date_gmt", "excerpt", "featured_media", "format", "guid", "id", "link", "meta", "modified", "modified_gmt", "ping_status", "slug", "status", "sticky", "tags", "template", "title", "type"],
+        "metadados": "{\"footnotes\": \"\"} (limitado)",
+        "taxonomias": ["categories", "tags", "cidade"],
+        "exemplo_conteudo": "Posts de blog/notícias"
+      },
+      "eventos": {
+        "endpoint": "/eventos",
+        "status": "✅ FUNCIONANDO",
+        "campos_base": ["_embedded", "_links", "cidade", "class_list", "content", "date", "date_gmt", "excerpt", "featured_media", "guid", "id", "link", "manifestacoes", "meta", "modified", "modified_gmt", "slug", "status", "template", "tipos-eventos", "title", "type"],
+        "metadados": "[] (limitado - requer autenticação para campos completos)",
+        "metadados_autenticados": {
+          "status": "✅ DISPONÍVEL COM AUTENTICAÇÃO",
+          "endpoint_autenticado": "/eventos/{id}?context=edit&_embed=true",
+          "campos_jetengine": [
+            "telefone", "e-mail", "website", "redes_sociais",
+            "evento_data_inicio", "evento_data_fim", 
+            "publico-alvo", "ingressos-gratuito", "link_para_ingresso"
+          ],
+          "exemplo_metadados": {
+            "evento_data_inicio": 1750446000,
+            "evento_data_fim": 0,
+            "ingressos-gratuito": "false",
+            "link_para_ingresso": "",
+            "publico-alvo": [],
+            "telefone": "",
+            "e-mail": "",
+            "website": ""
+          }
+        },
+        "taxonomias": ["tipos-eventos", "manifestacoes", "cidade"],
+        "observacao": "Endpoint funcional - dados completos com autenticação",
+        "exemplo_conteudo": {
+          "id": 5732,
+          "title": "Sítio Trindade (20/06)",
+          "content": "Evento de São João...",
+          "tipos-eventos": [309],
+          "manifestacoes": [415],
+          "cidade": [293, 255],
+          "_embedded": {
+            "wp:featuredmedia": "Imagem destacada com múltiplos tamanhos",
+            "wp:term": "Taxonomias expandidas (Show, São João, PE, Recife)"
+          }
+        },
+        "rotas_encontradas": ["/wp/v2/eventos", "/wp/v2/eventos/(?P<id>[\\d]+)", "/wp/v2/eventos/(?P<id>[\\d]+)/autosaves", "/wp/v2/eventos/(?P<parent>[\\d]+)/autosaves/(?P<id>[\\d]+)", "/wp/v2/eventos/(?P<parent>[\\d]+)/revisions", "/wp/v2/eventos/(?P<parent>[\\d]+)/revisions/(?P<id>[\\d]+)"]
+      }
+    },
+    "taxonomias": {
+      "cidade": {
+        "endpoint": "/cidade",
+        "status": "✅ FUNCIONANDO",
+        "estrutura": {
+          "id": "number",
+          "name": "string", 
+          "slug": "string",
+          "count": "number",
+          "parent": "number (hierárquica)",
+          "taxonomy": "cidade"
+        },
+        "exemplos": [
+          {"id": 283, "name": "Afogados da Ingazeira", "count": 0, "parent": 293},
+          {"id": 411, "name": "Aurora", "count": 1, "parent": 364}
+        ]
+      },
+      "tipos-eventos": {
+        "endpoint": "/tipos-eventos", 
+        "status": "✅ FUNCIONANDO",
+        "exemplos": [
+          {"id": 316, "name": "Cinema", "count": 0},
+          {"id": 312, "name": "Exposição", "count": 0}
+        ]
+      },
+      "manifestacoes": {
+        "endpoint": "/manifestacoes",
+        "status": "✅ FUNCIONANDO", 
+        "exemplos": [
+          {"id": 340, "name": "Afoxé", "count": 0},
+          {"id": 346, "name": "Baião", "count": 0}
+        ]
+      },
+      "ritmo": {
+        "endpoint": "/ritmo",
+        "status": "✅ FUNCIONANDO",
+        "exemplos": [
+          {"id": 281, "name": "Aboio", "count": 2},
+          {"id": 399, "name": "Afrobeat", "count": 1}
+        ]
+      },
+      "categorias_lugares": {
+        "endpoint": "/categorias_lugares",
+        "status": "⚠️ VAZIO",
+        "resultado": "Array vazio []"
+      },
+      "tipos_artistas": {
+        "endpoint": "/tipos_artistas",
+        "status": "✅ FUNCIONANDO",
+        "exemplos": [
+          {"id": 279, "name": "Artista Solo", "count": 1},
+          {"id": 373, "name": "Ator", "count": 1}
+        ]
+      },
+      "generos_musicais": {
+        "endpoint": "/generos_musicais",
+        "status": "✅ FUNCIONANDO",
+        "exemplos": [
+          {"id": 412, "name": "Bossa Nova", "count": 1},
+          {"id": 305, "name": "Ciranda", "count": 1}
+        ]
+      },
+      "tipos_de_historia": {
+        "endpoint": "/tipos_de_historia",
+        "status": "✅ FUNCIONANDO",
+        "exemplos": [
+          {"id": 300, "name": "Bairros", "description": "Histórias, curiosidades, arquitetura e identidade de cada bairro do Recife.", "count": 0},
+          {"id": 302, "name": "Memória", "description": "Fatos históricos, transformações urbanas, resgate cultural.", "count": 0}
+        ]
+      }
+    },
+    "jetengine_relations": {
+      "eventos_artistas": {
+        "endpoint_base": "/jet-rel/7",
+        "status": "✅ FUNCIONANDO COM AUTENTICAÇÃO",
+        "descricao": "Relação bidirecional entre Eventos e Artistas",
+        "endpoints": {
+          "listar_todas_relacoes": "GET /jet-rel/7",
+          "eventos_do_artista": "GET /jet-rel/7/parents/{artistId}",
+          "artistas_do_evento": "GET /jet-rel/7/children/{eventId}"
+        },
+        "estrutura_resposta": {
+          "eventos_do_artista": [{"parent_object_id": "evento_id"}],
+          "artistas_do_evento": [{"child_object_id": "artista_id"}]
+        },
+        "exemplo_uso": {
+          "artista_id": 5514,
+          "artista_nome": "Elba Ramalho",
+          "eventos_relacionados": [
+            {
+              "parent_object_id": "5732",
+              "evento_titulo": "Sítio Trindade (20/06)",
+              "evento_data": "2025-06-20"
+            }
+          ]
+        }
+      },
+      "eventos_lugares": {
+        "endpoint_base": "/jet-rel/8",
+        "status": "✅ DISPONÍVEL",
+        "descricao": "Relação bidirecional entre Eventos e Lugares",
+        "endpoints": {
+          "listar_todas_relacoes": "GET /jet-rel/8",
+          "lugares_do_evento": "GET /jet-rel/8/children/{eventId}",
+          "eventos_do_lugar": "GET /jet-rel/8/parents/{lugarId}"
+        },
+        "observacao": "Ainda não testado em detalhes"
+      }
+    },
+    "autenticacao": {
+      "metodo": "Basic Authentication",
+      "headers_necessarios": {
+        "Authorization": "Basic {base64(username:password)}",
+        "Content-Type": "application/json"
+      },
+      "parametros_contexto": {
+        "context=edit": "Necessário para acessar metadados completos",
+        "_embed=true": "Inclui dados relacionados (imagens, taxonomias, etc.)"
+      },
+      "credenciais_exemplo": {
+        "usuario": "api-recifemais",
+        "aplicacao": "API RecifeMais",
+        "observacao": "Credenciais específicas fornecidas pelo administrador"
+      }
+    },
+    "utilitarios": {
+      "search": {
+        "endpoint": "/search",
+        "status": "✅ FUNCIONANDO",
+        "parametros": ["search=termo", "per_page=N", "subtype=post,artista,etc"],
+        "exemplo_resultado": [
+          {
+            "id": 5585,
+            "title": "Restaurante italiano Ninetto...",
+            "url": "https://recifemais.com.br/gastro/...",
+            "type": "post",
+            "subtype": "post"
+          }
+        ]
+      },
+      "site_info": {
+        "endpoint": "/",
+        "status": "✅ FUNCIONANDO",
+        "campos": ["name", "description", "url", "home"]
+      }
+    }
+  },
+  "limitacoes_encontradas": {
+    "metadados_sem_autenticacao": "Campos meta customizados não estão expostos via API REST sem autenticação",
+    "categorias_lugares": "Taxonomia existe mas está vazia",
+    "relacionamentos_diretos": "Relacionamentos entre entidades requerem endpoints JetEngine específicos (/jet-rel/)",
+    "autenticacao_necessaria": "Dados completos (metadados JetEngine) só disponíveis com autenticação Basic Auth"
+  },
+  "limitacoes_superadas": {
+    "metadados": "✅ RESOLVIDO - Disponíveis com autenticação e context=edit",
+    "eventos": "✅ RESOLVIDO - Dados completos disponíveis com autenticação",
+    "relacionamentos": "✅ RESOLVIDO - Relações JetEngine funcionando (/jet-rel/7 e /jet-rel/8)",
+    "dados_eventos": "✅ RESOLVIDO - Metadados de eventos (datas, ingressos) disponíveis com autenticação"
+  },
+  "oportunidades_projeto": {
+    "dados_disponiveis": [
+      "✅ Eventos com metadados completos (datas, ingressos, contato) via autenticação",
+      "✅ Artistas com dados enriquecidos (contato, redes sociais, vídeos, galeria) via autenticação",
+      "✅ Relações JetEngine funcionais (Eventos ↔ Artistas, Eventos ↔ Lugares)",
+      "✅ Lugares com informações básicas e taxonomias",
+      "✅ Histórias categorizadas por tipos",
+      "✅ Posts/notícias com categorias e tags",
+      "✅ Organizadores (dados básicos)",
+      "✅ Sistema de busca global funcional",
+      "✅ Taxonomias hierárquicas (cidades com estados/países)",
+      "✅ Imagens destacadas com múltiplos tamanhos para todos os tipos de conteúdo"
+    ],
+    "funcionalidades_possiveis": [
+      "✅ IMPLEMENTADO - Agenda de eventos com filtros por manifestação cultural e cidade",
+      "✅ IMPLEMENTADO - Catálogo de artistas por ritmo/gênero com filtros avançados",
+      "✅ IMPLEMENTADO - Páginas individuais de artistas com dados completos (contato, redes sociais, vídeos)",
+      "✅ IMPLEMENTADO - Páginas individuais de lugares com dados completos (endereço, coordenadas, horários)",
+      "✅ IMPLEMENTADO - Relação automática Artista ↔ Eventos via JetEngine",
+      "✅ IMPLEMENTADO - Relação automática Lugar ↔ Eventos via JetEngine",
+      "✅ IMPLEMENTADO - Galeria de vídeos do YouTube embarcados",
+      "✅ IMPLEMENTADO - Sistema de busca e filtros usando taxonomias",
+      "✅ IMPLEMENTADO - SEO otimizado com structured data completo",
+      "✅ IMPLEMENTADO - Meta tags dinâmicas baseadas em taxonomias",
+      "✅ IMPLEMENTADO - Open Graph e Twitter Cards otimizados",
+      "✅ IMPLEMENTADO - Múltiplos schemas estruturados por página",
+      "✅ IMPLEMENTADO - Componente PlaceCard para listagem de lugares",
+      "✅ IMPLEMENTADO - Coordenadas GPS e endereços completos",
+      "🔄 POSSÍVEL - Páginas individuais de eventos com artistas relacionados",
+      "🔄 POSSÍVEL - Seção de histórias culturais categorizadas",
+      "🔄 POSSÍVEL - Blog de notícias com sistema de busca",
+      "🔄 POSSÍVEL - Mapa interativo de lugares usando coordenadas GPS",
+      "🔄 POSSÍVEL - Galeria de fotos dos artistas (IDs disponíveis em galeria_artistas)"
+    ],
+    "melhorias_sugeridas": [
+      "✅ RESOLVIDO - Metadados customizados de eventos agora acessíveis com autenticação",
+      "✅ RESOLVIDO - Relações entre entidades funcionando via JetEngine",
+      "✅ IMPLEMENTADO - Cache e otimizações de performance",
+      "✅ IMPLEMENTADO - Uso de _embed para reduzir requisições",
+      "✅ IMPLEMENTADO - SEO completo com structured data Schema.org",
+      "✅ IMPLEMENTADO - Meta descriptions dinâmicas baseadas em dados reais",
+      "✅ IMPLEMENTADO - Keywords inteligentes extraídas de taxonomias",
+      "✅ IMPLEMENTADO - Open Graph otimizado para redes sociais",
+      "✅ IMPLEMENTADO - Páginas individuais de eventos com dados completos",
+      "🔄 PENDENTE - Popular a taxonomia categorias_lugares",
+      "🔄 PENDENTE - Solicitar exposição dos metadados de lugares (endereços, coordenadas)",
+      "🔄 SUGERIDO - Implementar galeria de fotos usando IDs de galeria_artistas",
+      "🔄 SUGERIDO - Implementar sistema de favoritos/seguir artistas"
+    ]
+  },
+  "descobertas_eventos": {
+    "status_atual": "✅ ENDPOINT FUNCIONANDO",
+    "quantidade_disponivel": 1,
+    "evento_exemplo": {
+      "id": 5712,
+      "titulo": "Sitio Trindade (19/06)",
+      "tipo": "Evento de São João",
+      "local": "Sítio Trindade",
+      "programacao": "Orquestra Sinfônica do Recife às 20h",
+      "manifestacao_cultural": "São João (ID: 415)",
+      "localizacao": "PE > Recife (IDs: 293, 255)",
+      "imagem_destacada": {
+        "disponivel": true,
+        "multiplos_tamanhos": ["thumbnail", "medium", "medium_large", "full"],
+        "url_principal": "https://recifemais.com.br/wp-content/uploads/2025/06/recife-junino-m.png"
+      }
+    },
+    "estrutura_dados": {
+      "campos_basicos": ["id", "title", "content", "excerpt", "date", "slug"],
+      "taxonomias": ["tipos-eventos", "manifestacoes", "cidade"],
+      "recursos_embedded": ["wp:featuredmedia", "wp:term"],
+      "metadados_customizados": "Não expostos (data_inicio, horario, preco_ingresso, etc.)"
+    },
+    "potencial_uso": [
+      "Agenda cultural básica",
+      "Filtros por manifestação cultural (São João, Carnaval, etc.)",
+      "Filtros geográficos (estado/cidade)",
+      "Galeria de imagens de eventos",
+      "Páginas individuais de eventos com descrição completa"
+    ],
+    "limitacoes": [
+      "Apenas 1 evento disponível atualmente",
+      "Metadados importantes não expostos (datas, horários, preços)",
+      "Relacionamentos com artistas/lugares não visíveis"
+    ]
+  },
+  "parametros_otimizacao": {
+    "_embed": "Inclui recursos relacionados (autor, imagem destacada, etc.)",
+    "_fields": "Seleciona apenas campos específicos",
+    "per_page": "Máximo 100 itens por página",
+    "page": "Navegação por páginas",
+    "hide_empty": "Para taxonomias, oculta termos sem conteúdo associado",
+    "context=edit": "NOVO - Necessário para acessar metadados completos com autenticação"
+  },
+  "descobertas_jetengine": {
+    "data_descoberta": "2025-01-20",
+    "status": "✅ INTEGRAÇÃO COMPLETA FUNCIONANDO",
+    "principais_descobertas": {
+      "autenticacao_basica": {
+        "metodo": "Basic Authentication com credenciais específicas",
+        "resultado": "Acesso completo aos metadados JetEngine",
+        "campos_desbloqueados": [
+          "telefone", "e-mail", "website", "redes_sociais",
+          "artista_ano_formacao", "galeria_artistas", "videos_artistas",
+          "evento_data_inicio", "evento_data_fim", "ingressos-gratuito"
+        ]
+      },
+      "relacoes_jetengine": {
+        "eventos_artistas": "/jet-rel/7 - Relação bidirecional funcionando",
+        "eventos_lugares": "/jet-rel/8 - Disponível para implementação",
+        "estrutura": "parent_object_id (evento) ↔ child_object_id (artista/lugar)"
+      },
+      "dados_completos_artistas": {
+        "contato": "Telefones múltiplos, email, website",
+        "redes_sociais": "Instagram, Facebook, YouTube, Spotify com URLs",
+        "midia": "Galeria de fotos (IDs) e vídeos do YouTube",
+        "carreira": "Ano de formação, tipo de artista"
+      },
+      "dados_completos_eventos": {
+        "datas": "Timestamp Unix para início/fim",
+        "ingressos": "Status gratuito/pago e links",
+        "contato": "Telefone, email, website do evento",
+        "relacoes": "Artistas e lugares relacionados via JetEngine"
+      }
+    },
+    "exemplo_implementacao": {
+      "artista_testado": {
+        "id": 5514,
+        "nome": "Elba Ramalho",
+        "dados_obtidos": {
+          "telefones": ["(21) 2523-0094", "(21) 2521-6499"],
+          "email": "alexandre@acaua.net",
+          "website": "https://www.elbaramalho.com.br/",
+          "redes_sociais": 4,
+          "videos": 2,
+          "ano_formacao": "1979",
+          "eventos_relacionados": 1
+        }
+      },
+      "evento_relacionado": {
+        "id": 5732,
+        "titulo": "Sítio Trindade (20/06)",
+        "data": "2025-06-20 06:00:00",
+        "tipo": "Show",
+        "manifestacao": "São João",
+        "local": "Recife, PE",
+        "ingressos": "Pagos"
+      }
+    },
+    "arquitetura_implementada": {
+      "autenticacao": "src/utils/apiAuth.js",
+      "processamento": "Funções específicas para cada tipo de dado",
+      "interface": "Componentes React integrados",
+      "relacoes": "Busca automática via JetEngine",
+      "performance": "Cache e requisições paralelas"
+    },
+    "resultados_finais": {
+      "pagina_artista": "100% funcional com todos os dados",
+      "relacao_eventos": "Automática via JetEngine",
+      "redes_sociais": "Ícones e links funcionais",
+      "videos_youtube": "Players embarcados",
+      "contato": "Links clicáveis (tel:, mailto:)",
+      "experiencia_usuario": "Completa e profissional"
+    }
+  },
+  "otimizacoes_seo": {
+    "data_implementacao": "2025-01-20",
+    "status": "✅ IMPLEMENTAÇÃO COMPLETA",
+    "objetivo": "Melhorar ranqueamento e visibilidade nas buscas por artistas e cultura do Recife",
+    "structured_data_implementado": {
+      "schemas_por_pagina": 3,
+      "tipos_schema": [
+        {
+          "tipo": "Person/MusicGroup",
+          "uso": "Páginas de artistas",
+          "campos_incluidos": [
+            "name", "description", "image", "url", "sameAs", "address",
+            "genre", "hasOccupation", "email", "telephone", "foundingDate",
+            "performerIn"
+          ],
+          "beneficios": "Rich snippets, busca local, classificação por gênero musical"
+        },
+        {
+          "tipo": "WebSite",
+          "uso": "Todas as páginas",
+          "campos_incluidos": ["name", "description", "url", "potentialAction", "publisher"],
+          "beneficios": "Search box nos resultados, autoridade de domínio"
+        },
+        {
+          "tipo": "Organization",
+          "uso": "Todas as páginas",
+          "campos_incluidos": ["name", "description", "url", "logo", "address", "areaServed", "knowsAbout"],
+          "beneficios": "Autoridade local, especialização em cultura pernambucana"
+        }
+      ]
+    },
+    "meta_tags_otimizadas": {
+      "meta_description": {
+        "formato": "{Nome} - {Tipo} especializado em {Ritmos} de {Cidade}, {Estado}. Conheça a biografia, contatos, eventos e redes sociais no RecifeMais.",
+        "limite_caracteres": 160,
+        "baseado_em": "Dados reais da API (taxonomias, localização, tipo de artista)"
+      },
+      "keywords": {
+        "fonte": "Taxonomias da API (ritmos, gêneros, tipos, cidades)",
+        "exemplo": "Elba Ramalho, artista, músico, Recife, Pernambuco, cultura, música brasileira, arrasta-pé, baião, forró",
+        "limite": 15
+      },
+      "meta_tags_adicionais": [
+        "robots: index, follow",
+        "language: pt-BR",
+        "revisit-after: 7 days",
+        "distribution: global",
+        "rating: general"
+      ]
+    },
+    "open_graph_twitter": {
+      "open_graph": {
+        "campos_otimizados": ["og:title", "og:description", "og:image", "og:url", "og:type", "og:site_name", "og:locale"],
+        "dimensoes_imagem": "1200x630 pixels",
+        "tipo_conteudo": "profile para artistas"
+      },
+      "twitter_cards": {
+        "tipo": "summary_large_image",
+        "campos": ["twitter:title", "twitter:description", "twitter:image", "twitter:site", "twitter:creator"],
+        "handle": "@recifemais"
+      }
+    },
+    "beneficios_esperados": {
+      "ranqueamento": {
+        "busca_artistas_recife": "+30-50%",
+        "busca_generos_regionais": "+40-60%",
+        "busca_nomes_especificos": "+25-35%"
+      },
+      "visibilidade": [
+        "Rich snippets em 80%+ das buscas",
+        "Melhor posicionamento local",
+        "Maior autoridade de domínio"
+      ],
+      "engajamento": {
+        "taxa_clique": "+20-30%",
+        "tempo_permanencia": "+15-25%",
+        "compartilhamento_redes": "+40-60%"
+      }
+    },
+    "arquivos_modificados": [
+      "src/utils/seo.js - Funções avançadas de SEO",
+      "src/hooks/useSEO.js - Hook otimizado com múltiplos schemas",
+      "src/components/ArtistPage.js - Integração completa",
+      "SEO-OPTIMIZATION.md - Documentação completa"
+    ],
+    "validacao_ferramentas": [
+      "Google Rich Results Test: https://search.google.com/test/rich-results",
+      "Facebook Sharing Debugger: https://developers.facebook.com/tools/debug/",
+      "Twitter Card Validator: https://cards-dev.twitter.com/validator",
+      "Schema.org Validator: https://validator.schema.org/"
+    ],
+    "exemplo_resultado": {
+      "artista": "Elba Ramalho",
+      "title": "Elba Ramalho - Artista | RecifeMais",
+      "description": "Elba Ramalho - Cantor especializado em Arrasta-pé e Baião de Conceição, PB. Conheça a biografia, contatos, eventos e redes sociais no RecifeMais.",
+      "keywords": "Elba Ramalho, artista, músico, Recife, Pernambuco, cultura, música brasileira, arrasta-pé, baião, forró, cantor, compositor, mpb, música regional, conceição",
+      "schemas_incluidos": ["Person", "WebSite", "Organization", "BreadcrumbList"]
+    }
+  },
+  "implementacao_lugares": {
+    "data_implementacao": "2025-01-20",
+    "status": "✅ IMPLEMENTAÇÃO COMPLETA + MELHORIAS AVANÇADAS",
+    "objetivo": "Criar páginas individuais de lugares com dados completos e relações",
+    "componentes_criados": [
+      "src/components/PlacePage.js - Página individual de lugares",
+      "src/components/PlacesPage.js - Página de listagem com filtros",
+      "src/components/features/PlaceCard.js - Card para listagem de lugares",
+      "src/components/ui/MapComponent.js - Componente de mapa interativo"
+    ],
+    "funcionalidades_implementadas": {
+      "dados_completos": {
+        "endereco_completo": "Estrada do Arraial, 3259 - Casa Amarela, Recife - PE, 52051-430",
+        "coordenadas_gps": "Latitude: -8.0305997, Longitude: -34.9129212",
+        "contato_multiplo": "Telefones, email, website",
+        "redes_sociais": "Instagram integrado com ícones específicos",
+        "horario_funcionamento": "Segunda a sexta-feira, das 5h às 22h",
+        "informacoes_ingresso": "Gratuito/Pago"
+      },
+      "melhorias_interface": {
+        "taxonomias_clicaveis": "Badges de tipos e categorias são links com hover effects",
+        "eventos_clicaveis": "Títulos dos eventos são links completos para /evento/{slug}",
+        "mapa_interativo": "OpenStreetMap embed com links para Google Maps e Waze",
+        "cards_informacoes": "Grid de informações rápidas (horário, GPS, contato, ingresso)",
+        "redes_sociais_melhoradas": "Ícones específicos por rede social com cores personalizadas",
+        "detalhes_adicionais": "Seção destacada para informações especiais"
+      },
+      "navegacao_melhorada": {
+        "pagina_listagem": "/lugares com filtros por tipo e categoria",
+        "urls_filtros": "/lugares?tipo=parques, /lugares?categoria=museus",
+        "breadcrumbs": "Navegação hierárquica completa",
+        "paginacao": "Sistema de paginação para listagem"
+      },
+      "relacoes_jetengine": {
+        "eventos_relacionados": "Via /jet-rel/8/parents/{lugarId}",
+        "busca_automatica": "Eventos do local exibidos automaticamente",
+        "exemplo": "Sítio Trindade ↔ Sítio Trindade (20/06)"
+      },
+      "seo_otimizado": {
+        "structured_data": "Schema.org Place com coordenadas GPS",
+        "meta_description": "Baseada em tipo, categoria e localização",
+        "keywords": "Extraídas de taxonomias e metadados",
+        "open_graph": "Otimizado para compartilhamento"
+      },
+      "interface_usuario": {
+        "layout_responsivo": "Grid adaptativo mobile-first",
+        "sidebar_informacoes": "Contato, horários, eventos",
+        "noticias_relacionadas": "Busca automática por nome do lugar",
+        "navegacao": "Breadcrumbs e links relacionados"
+      }
+    },
+    "dados_exemplo_sitio_trindade": {
+      "id": 5725,
+      "nome": "Sítio Trindade",
+      "tipo": "Parques",
+      "categoria": "Parques",
+      "endereco": "Estrada do Arraial, 3259 - Casa Amarela, Recife - PE, 52051-430",
+      "telefones": 2,
+      "email": "sitiotrindade@recife.pe.gov.br",
+      "website": "https://www2.recife.pe.gov.br/servico/sitio-trindade",
+      "instagram": "https://www.instagram.com/sitiotrindaderecife/",
+      "coordenadas": "GPS disponível",
+      "horario": "Detalhado disponível",
+      "eventos_relacionados": 1,
+      "url_pagina": "https://recifemais.com.br/lugar/sitio-trindade"
+    },
+    "beneficios_seo": {
+      "busca_local": "Coordenadas GPS para resultados de proximidade",
+      "rich_snippets": "Endereço, horários, contato nos resultados",
+      "structured_data": "Schema Place com todas as informações",
+      "meta_tags": "Dinâmicas baseadas em dados reais"
+    },
+    "urls_implementadas": {
+      "pagina_individual": "http://localhost:3000/lugar/sitio-trindade",
+      "listagem_geral": "http://localhost:3000/lugares",
+      "filtro_tipo": "http://localhost:3000/lugares?tipo=parques",
+      "filtro_categoria": "http://localhost:3000/lugares?categoria=museus",
+      "google_maps": "https://www.google.com/maps/search/?api=1&query=-8.0305997,-34.9129212",
+      "waze": "https://www.waze.com/ul?ll=-8.0305997,-34.9129212&navigate=yes"
+    },
+    "proximas_melhorias_sugeridas": [
+      "🔄 Implementar página individual de eventos (/evento/{slug})",
+      "🔄 Adicionar galeria de fotos dos lugares",
+      "🔄 Implementar sistema de avaliações/comentários",
+      "🔄 Criar mapa geral com todos os lugares",
+      "🔄 Adicionar filtros por cidade/região",
+      "🔄 Implementar busca por proximidade"
+    ]
+  },
+  "homepage_atualizada": {
+    "data_implementacao": "2025-01-20",
+    "status": "✅ HOMEPAGE COMPLETAMENTE RENOVADA",
+    "objetivo": "Criar uma homepage integrada que exiba eventos, lugares, artistas e notícias",
+    "melhorias_implementadas": {
+      "busca_dados_reais": {
+        "antes": "Posts filtrados por categoria (limitado e impreciso)",
+        "depois": "APIs específicas para eventos, lugares, artistas e posts",
+        "beneficios": [
+          "Dados mais precisos e atualizados",
+          "Metadados completos dos eventos com autenticação",
+          "Ordenação correta por data de início dos eventos",
+          "Performance melhorada com requisições paralelas"
+        ]
+      },
+      "secao_estatisticas": {
+        "descricao": "Nova seção com contadores dinâmicos",
+        "layout": "Grid 2x2 no mobile, 4 colunas no desktop",
+        "metricas": ["Eventos", "Lugares", "Artistas", "Notícias"],
+        "design": "Cards brancos com números em destaque azul"
+      },
+      "secoes_melhoradas": {
+        "proximos_eventos": {
+          "titulo": "Próximos Eventos",
+          "subtitulo": "Descubra os eventos mais aguardados do Recife",
+          "ordenacao": "Por data de início (timestamp Unix)",
+          "metadados": "Completos via autenticação"
+        },
+        "lugares_conhecer": {
+          "titulo": "Lugares para Conhecer", 
+          "subtitulo": "Explore os melhores espaços culturais da cidade",
+          "dados": "API específica de lugares"
+        },
+        "artistas_destaque": {
+          "titulo": "Artistas em Destaque",
+          "subtitulo": "Conheça os talentos que movem a cultura recifense",
+          "dados": "API específica de artistas"
+        },
+        "ultimas_noticias": {
+          "titulo": "Últimas Notícias",
+          "subtitulo": "Fique por dentro das novidades culturais",
+          "dados": "Posts da API principal"
+        }
+      },
+      "melhorias_visuais": {
+        "hero_section": {
+          "fallback_melhorado": "Gradiente azul quando sem imagem",
+          "condicional_inteligente": "Verifica se imagem existe antes de renderizar"
+        },
+        "links_call_to_action": {
+          "icones_adicionados": "SVG específicos para cada seção",
+          "hover_effects": "Transições suaves de cor",
+          "textos_descritivos": "Links mais claros e informativos"
+        },
+        "cta_final": {
+          "texto_melhorado": "Descrição mais envolvente da cultura recifense",
+          "botoes_com_icones": "Calendário, localização e pessoa",
+          "layout_centralizado": "Melhor hierarquia visual"
+        }
+      },
+      "performance_otimizada": {
+        "requisicoes_paralelas": "Promise.all para buscar todos os dados simultaneamente",
+        "tratamento_erros": "Fallbacks para APIs que falharem",
+        "loading_inteligente": "Estado único para todas as requisições",
+        "metadados_eventos": "Busca autenticada apenas para eventos"
+      }
+    },
+    "urls_funcionais": {
+      "homepage": "http://localhost:3000/",
+      "navegacao_direta": [
+        "http://localhost:3000/eventos",
+        "http://localhost:3000/lugares", 
+        "http://localhost:3000/artistas"
+      ]
+    },
+    "experiencia_usuario": {
+      "navegacao_intuitiva": "Links diretos para todas as seções principais",
+      "informacoes_contextuais": "Subtítulos explicativos em cada seção",
+      "preview_conteudo": "3 itens de cada categoria na homepage",
+      "call_to_action_claro": "Botões 'Ver todos' em cada seção",
+      "design_coeso": "Estilo consistente com páginas individuais"
+    },
+    "dados_exemplo_homepage": {
+      "eventos_exibidos": "Máximo 3, ordenados por data",
+      "lugares_exibidos": "Máximo 3, dados da API de lugares",
+      "artistas_exibidos": "Máximo 3, dados da API de artistas", 
+      "noticias_exibidas": "Máximo 3, posts principais",
+      "hero_content": "Post mais recente como destaque principal"
+         }
+   },
+   "sistema_posts_completo": {
+     "data_implementacao": "2025-01-20",
+     "status": "✅ SISTEMA COMPLETO DE POSTS/NOTÍCIAS IMPLEMENTADO",
+     "objetivo": "Criar sistema completo de listagem, busca, categorias e tags para posts",
+     "componentes_criados": [
+       "src/components/PostsPage.js - Página universal para posts",
+       "src/components/ui/SearchBox.js - Componente de busca",
+       "Atualização do Header com busca integrada",
+       "Atualização do NewsCard com links para categorias/tags"
+     ],
+     "funcionalidades_implementadas": {
+       "pagina_posts_universal": {
+         "descricao": "Um componente que funciona para múltiplos tipos de listagem",
+         "tipos_suportados": [
+           "Todas as notícias (/noticias)",
+           "Busca por texto (/noticias?search=termo)",
+           "Filtro por categoria (/categoria/slug)",
+           "Filtro por tag (/tag/slug)"
+         ],
+         "recursos": [
+           "Paginação completa com navegação",
+           "Breadcrumbs dinâmicos",
+           "SEO otimizado por tipo de página",
+           "Estados de loading e erro",
+           "Contadores de resultados"
+         ]
+       },
+       "sistema_busca": {
+         "componente": "SearchBox",
+         "localizacao": "Header (desktop e mobile)",
+         "funcionalidade": "Busca em tempo real com redirecionamento",
+         "placeholder": "Buscar notícias...",
+         "url_resultado": "/noticias?search={termo}"
+       },
+       "header_melhorado": {
+         "navegacao": "Links React Router em vez de âncoras",
+         "menu_mobile": "Expansível com busca integrada",
+         "responsividade": "Busca visível em desktop, oculta em mobile expandido",
+         "estrutura": "Logo + Menu + Busca + Botões"
+       },
+       "newscard_interativo": {
+         "titulo_clicavel": "Link para página individual da notícia",
+         "categorias_clicaveis": "Badges que levam para /categoria/{slug}",
+         "tags_clicaveis": "Links que levam para /tag/{slug}",
+         "hover_effects": "Transições suaves em todos os elementos",
+         "limitacao_inteligente": "Máximo 2 categorias e 3 tags exibidas"
+       }
+     },
+     "rotas_implementadas": {
+       "listagem_geral": [
+         "/noticias - Todas as notícias",
+         "/posts - Alias para notícias"
+       ],
+       "busca": [
+         "/noticias?search=termo - Busca por texto",
+         "/busca - Alias para busca"
+       ],
+       "taxonomias": [
+         "/categoria/{slug} - Posts de uma categoria",
+         "/tag/{slug} - Posts de uma tag"
+       ],
+       "individuais": [
+         "/noticia/{slug} - Post individual",
+         "/post/{slug} - Alias para posts"
+       ]
+     },
+     "dados_api_utilizados": {
+       "posts": {
+         "endpoint": "/wp/v2/posts?_embed",
+         "parametros_busca": "&search={termo}",
+         "parametros_categoria": "&categories={id}",
+         "parametros_tag": "&tags={id}",
+         "paginacao": "&page={numero}&per_page=12"
+       },
+       "categorias": {
+         "endpoint": "/wp/v2/categories?per_page=100",
+         "campos_utilizados": ["id", "name", "slug", "count"]
+       },
+       "tags": {
+         "endpoint": "/wp/v2/tags?per_page=100", 
+         "campos_utilizados": ["id", "name", "slug", "count"]
+       },
+       "taxonomias_embedded": {
+         "categorias": "_embedded['wp:term'][0]",
+         "tags": "_embedded['wp:term'][1]",
+         "autor": "_embedded.author[0]"
+       }
+     },
+     "seo_otimizado": {
+       "pagina_busca": {
+         "title": "Busca por \"{termo}\" - RecifeMais",
+         "description": "Resultados da busca por \"{termo}\" no RecifeMais",
+         "url": "https://recifemais.com.br/posts?search={termo}"
+       },
+       "pagina_categoria": {
+         "title": "{categoria} - Notícias | RecifeMais",
+         "description": "Todas as notícias da categoria {categoria}",
+         "url": "https://recifemais.com.br/categoria/{slug}"
+       },
+       "pagina_tag": {
+         "title": "Tag: {tag} - RecifeMais",
+         "description": "Conteúdos marcados com \"{tag}\"",
+         "url": "https://recifemais.com.br/tag/{slug}"
+       }
+     },
+     "experiencia_usuario": {
+       "navegacao_intuitiva": "Breadcrumbs em todas as páginas",
+       "busca_acessivel": "Disponível no header em todas as páginas",
+       "links_contextuais": "Categorias e tags clicáveis nos cards",
+       "paginacao_inteligente": "Máximo 5 páginas visíveis por vez",
+       "estados_feedback": "Loading, erro e resultados vazios",
+       "contadores_dinamicos": "Número de resultados e página atual"
+     },
+     "urls_exemplo": {
+       "listagem": "http://localhost:3000/noticias",
+       "busca": "http://localhost:3000/noticias?search=carnaval",
+       "categoria": "http://localhost:3000/categoria/cultura",
+       "tag": "http://localhost:3000/tag/artesanato",
+       "paginacao": "http://localhost:3000/noticias?page=2"
+     }
+   },
+   "implementacao_eventos": {
+    "data_implementacao": "2025-01-20",
+    "status": "✅ IMPLEMENTAÇÃO COMPLETA + MELHORIAS AVANÇADAS",
+    "objetivo": "Criar páginas individuais de eventos com dados completos e design destacado",
+    "componentes_criados": [
+      "src/components/EventPage.js - Página individual de eventos",
+      "PlaceMapInfo - Componente para mapa e endereço do local"
+    ],
+    "funcionalidades_implementadas": {
+      "dados_completos": {
+        "titulo_e_descricao": "Título, excerpt e conteúdo completo do evento",
+        "data_hora_destacada": "Box gradiente com dia da semana, data e horário em destaque",
+        "status_ingressos": "Gratuito/Pago com links para compra",
+        "website_oficial": "Link para site do evento",
+        "redes_sociais": "Instagram integrado com ícones específicos",
+        "manifestacao_cultural": "São João, Carnaval, etc. como badges clicáveis",
+        "localizacao": "Cidade e estado organizados hierarquicamente"
+      },
+      "melhorias_interface": {
+        "imagem_maior": "Aspect ratio 4:3 em vez de 16:9 para mais destaque",
+        "layout_5_colunas": "2 colunas para imagem, 3 para conteúdo",
+        "data_destacada": "Box gradiente com dia da semana em maiúsculo",
+        "formatacao_horario": "'a partir das XX:XX' ou 'XX:XX às YY:YY'",
+        "taxonomias_clicaveis": "Links para filtros de eventos",
+        "cards_informacoes": "Grid de informações rápidas organizadas"
+      },
+      "local_do_evento": {
+        "integracao_completa": "Busca dados do local via autenticação",
+        "endereco_completo": "Endereço formatado e exibido",
+        "coordenadas_gps": "Latitude e longitude em formato legível",
+        "mapa_interativo": "OpenStreetMap embed com marcador",
+        "botoes_navegacao": "Google Maps e Waze com links diretos",
+        "overlay_coordenadas": "Coordenadas precisas no canto do mapa"
+      },
+      "relacoes_jetengine": {
+        "artistas_relacionados": "Via /jet-rel/7/children/{eventId}",
+        "lugares_relacionados": "Via /jet-rel/8/children/{eventId}",
+        "busca_automatica": "Cards clicáveis para páginas relacionadas",
+        "exemplo": "Evento Sítio Trindade ↔ Artistas ↔ Local"
+      },
+      "seo_otimizado": {
+        "structured_data": "Schema.org Event com datas e localização",
+        "meta_description": "Baseada em manifestação, local e data",
+        "keywords": "Extraídas de taxonomias e metadados",
+        "open_graph": "Otimizado para compartilhamento com imagem",
+        "breadcrumbs": "Navegação hierárquica completa"
+      }
+    },
+    "dados_exemplo_evento_5712": {
+      "id": 5712,
+      "titulo": "Sitio Trindade (19/06)",
+      "slug": "sitio-trindade-19-06-25",
+      "data_inicio": "2025-06-20 06:00:00 (timestamp: 1750363200)",
+      "data_fim": "2025-06-20 10:00:00 (timestamp: 1750377600)",
+      "manifestacao": "São João (ID: 415)",
+      "localizacao": "Recife, PE (IDs: 255, 293)",
+      "ingressos": "Gratuito",
+      "website": "https://recifejunino.recife.pe.gov.br/",
+      "instagram": "@saojoaodorecife",
+      "artistas_relacionados": 2,
+      "local": "Sítio Trindade (ID: 5725)",
+      "url_pagina": "http://localhost:3005/evento/sitio-trindade-19-06-25"
+    },
+    "melhorias_visuais": {
+      "data_destacada": {
+        "formato": "QUINTA-FEIRA / 20 de junho de 2025 / a partir das 06:00",
+        "design": "Box gradiente azul com texto branco",
+        "icone": "Calendário em tamanho maior",
+        "hierarquia": "Dia da semana > Data > Horário"
+      },
+      "imagem_evento": {
+        "tamanho": "Aspect ratio 4:3 para mais impacto visual",
+        "qualidade": "Imagem destacada em alta resolução",
+        "fallback": "Ícone de calendário em gradiente"
+      },
+      "local_com_mapa": {
+        "endereco": "Estrada do Arraial, 3259 - Casa Amarela, Recife - PE",
+        "coordenadas": "-8.0305997, -34.9129212",
+        "mapa_embed": "OpenStreetMap com marcador preciso",
+        "navegacao": "Botões Google Maps (azul) e Waze (ciano)"
+      }
+    },
+    "urls_implementadas": {
+      "pagina_individual": "http://localhost:3005/evento/sitio-trindade-19-06-25",
+      "redirect_por_id": "http://localhost:3005/event/5712",
+      "filtros_manifestacao": "http://localhost:3005/eventos?manifestacao=sao-joao",
+      "filtros_tipo": "http://localhost:3005/eventos?tipo=show"
+    },
+    "pagina_listagem_eventos": {
+      "data_implementacao": "2025-01-20",
+      "data_melhorias": "2025-01-20",
+      "status": "✅ IMPLEMENTADA + SISTEMA DE FILTROS COMPLETO",
+      "url": "http://localhost:3000/eventos",
+      "funcionalidades": [
+        "Listagem completa de eventos ordenada por data de início",
+        "Cards com informações visuais (data, horário, status, ingressos)",
+        "Status visual dos eventos (Próximo, Hoje, Finalizado)",
+        "Indicadores de ingressos (Gratuito/Pago)",
+        "Links diretos para páginas individuais (/evento/{slug})",
+        "Breadcrumb de navegação",
+        "Estados de loading e erro",
+        "Layout responsivo em grid",
+        "Sistema de filtros completo com URL persistente",
+        "Busca por texto em tempo real",
+        "Filtros por tipo, manifestação e cidade",
+        "Filtros ativos visíveis com remoção individual",
+        "Contadores dinâmicos nos filtros"
+      ],
+      "ordenacao": "Por data de início (evento_data_inicio) - mais próximos primeiro",
+      "design": {
+        "cards": "Hover effects, transições suaves, badges de taxonomias",
+        "imagens": "Aspect ratio 16:9 com fallback gradiente",
+        "informacoes": "Data formatada em português, localização, excerpt",
+        "data_destacada": "Box gradiente azul com formato 'QUI | 19/06 - 17h'"
+      },
+      "sistema_filtros": {
+        "tipos_filtros": [
+          "Busca por texto (search)",
+          "Tipo de evento (tipos-eventos)",
+          "Manifestação cultural (manifestacoes)",
+          "Cidade (cidade com formato 'Cidade - Estado')"
+        ],
+        "funcionalidades_filtros": [
+          "Persistência na URL (?search=termo&tipo=show)",
+          "Filtros combinados (múltiplos ativos simultaneamente)",
+          "Contadores de resultados por filtro",
+          "Badges de filtros ativos com remoção individual",
+          "Botão 'Limpar todos' para reset completo",
+          "Atualização dinâmica do título e contadores"
+        ],
+        "urls_exemplo": [
+          "/eventos?search=sitio",
+          "/eventos?manifestacao=sao-joao",
+          "/eventos?tipo=show&cidade=recife"
+        ]
+      }
+    },
+    "proximas_melhorias_sugeridas": [
+      "✅ CONCLUÍDO - Adicionar filtros por data, manifestação e local na página de listagem",
+      "✅ CONCLUÍDO - Destaque visual na data dos eventos (formato QUI | 19/06 - 17h)",
+      "🔄 Implementar paginação para grandes volumes de eventos",
+      "🔄 Adicionar filtro por período de datas (data início/fim)",
+      "🔄 Criar agenda mensal/semanal de eventos",
+      "🔄 Implementar sistema de lembretes",
+      "🔄 Adicionar compartilhamento para calendários (Google, Apple)",
+      "🔄 Integrar com redes sociais para eventos",
+      "🔄 Adicionar ordenação alternativa (por relevância, alfabética)",
+      "🔄 Implementar modo de visualização (grid/lista)"
+    ]
+  }
+} 

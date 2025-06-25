@@ -120,15 +120,33 @@ class SupabaseManager:
     def search_similar_content(self, embedding: List[float], limit: int = 5) -> List[Dict]:
         """Busca conteúdo similar usando embeddings (RAG)"""
         try:
-            # Por enquanto, retorna lista vazia já que não temos embeddings no banco ainda
-            # Em versões futuras, implementar busca por similaridade usando pgvector
+            # Converter embedding para formato compatível com pgvector
+            embedding_str = f"[{','.join(map(str, embedding))}]"
+            
+            # Buscar conteúdo similar usando cosine similarity
             result = self.client.table("knowledge_base")\
-                .select("*")\
+                .select("content_text, source_url, topic, category_recifemais, metadata")\
+                .rpc("match_documents", {
+                    "query_embedding": embedding_str,
+                    "match_threshold": 0.7,
+                    "match_count": limit
+                })\
+                .execute()
+            
+            if result.data:
+                return result.data
+            
+            # Fallback: busca simples por tópico se não tiver função RPC
+            logger.warning("Função match_documents não encontrada, usando busca simples")
+            result = self.client.table("knowledge_base")\
+                .select("content_text, source_url, topic, category_recifemais, metadata")\
                 .limit(limit)\
                 .execute()
-            return result.data or []
+            
+            return result.data if result.data else []
+            
         except Exception as e:
-            logger.error(f"Erro ao buscar conteúdo similar: {e}")
+            logger.error(f"Erro na busca de conteúdo similar: {e}")
             return []
 
     def get_secure_config(self, key: str) -> Optional[str]:

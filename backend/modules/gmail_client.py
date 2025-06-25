@@ -9,6 +9,9 @@ from typing import List, Dict, Any, Optional
 import logging
 from datetime import datetime, timedelta
 
+# Desabilitar cache do Google API para evitar warnings
+os.environ['GOOGLE_API_USE_CLIENT_CERTIFICATE'] = 'false'
+
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow

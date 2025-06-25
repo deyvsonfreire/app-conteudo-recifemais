@@ -216,27 +216,196 @@ class WordPressPublisher:
             logger.error(f"Erro ao buscar categoria '{category_name}': {e}")
             return None
     
-    def get_recent_posts(self, limit: int = 10) -> List[Dict]:
-        """Busca posts recentes"""
+    def get_recent_posts(self, limit: int = 50) -> List[Dict]:
+        """Busca posts recentes do WordPress"""
         try:
-            response = requests.get(
-                f"{self.api_url}/posts",
-                params={
-                    "per_page": limit,
-                    "orderby": "date",
-                    "order": "desc"
-                },
-                auth=self.auth
-            )
+            url = f"{self.base_url}/posts"
+            params = {
+                'per_page': min(limit, 100),  # WordPress limita a 100 por página
+                'status': 'publish',
+                'orderby': 'date',
+                'order': 'desc'
+            }
             
-            if response.status_code == 200:
-                return response.json()
+            response = requests.get(url, params=params, auth=self.auth, timeout=30)
+            response.raise_for_status()
             
-            return []
+            return response.json()
             
         except Exception as e:
             logger.error(f"Erro ao buscar posts recentes: {e}")
             return []
+    
+    def extract_clean_content(self, html_content: str) -> str:
+        """Extrai texto limpo do conteúdo HTML do WordPress"""
+        try:
+            from bs4 import BeautifulSoup
+            
+            # Remover HTML tags
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            # Remover scripts e styles
+            for script in soup(["script", "style"]):
+                script.decompose()
+            
+            # Extrair texto
+            text = soup.get_text()
+            
+            # Limpar espaços extras
+            lines = (line.strip() for line in text.splitlines())
+            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+            text = ' '.join(chunk for chunk in chunks if chunk)
+            
+            return text
+            
+        except ImportError:
+            # Fallback simples sem BeautifulSoup
+            import re
+            # Remover tags HTML básicas
+            clean = re.sub('<[^<]+?>', '', html_content)
+            # Limpar espaços extras
+            clean = ' '.join(clean.split())
+            return clean
+            
+        except Exception as e:
+            logger.error(f"Erro ao extrair conteúdo limpo: {e}")
+            return html_content  # Retorna o original se falhar
+    
+    def get_posts_with_external_links(self, limit: int = 50) -> List[Dict]:
+        """Busca posts que contêm links externos para análise de referências"""
+        try:
+            url = f"{self.base_url}/posts"
+            params = {
+                'per_page': min(limit, 100),
+                'status': 'publish',
+                'orderby': 'date',
+                'order': 'desc',
+                '_embed': True  # Inclui metadados completos
+            }
+            
+            response = requests.get(url, params=params, auth=self.auth, timeout=30)
+            response.raise_for_status()
+            
+            posts = response.json()
+            posts_with_links = []
+            
+            for post in posts:
+                content = post.get('content', {}).get('rendered', '')
+                
+                # Extrair links externos
+                external_links = self.extract_external_links(content)
+                
+                if external_links:
+                    post['external_links'] = external_links
+                    posts_with_links.append(post)
+            
+            return posts_with_links
+            
+        except Exception as e:
+            logger.error(f"Erro ao buscar posts com links externos: {e}")
+            return []
+    
+    def extract_external_links(self, html_content: str) -> List[Dict]:
+        """Extrai links externos do conteúdo HTML"""
+        try:
+            from bs4 import BeautifulSoup
+            import urllib.parse
+            
+            soup = BeautifulSoup(html_content, 'html.parser')
+            links = []
+            
+            # Domínio do site WordPress
+            wp_domain = urllib.parse.urlparse(self.base_url).netloc
+            
+            for link in soup.find_all('a', href=True):
+                href = link['href']
+                
+                # Verificar se é link externo
+                if href.startswith('http') and wp_domain not in href:
+                    links.append({
+                        'url': href,
+                        'text': link.get_text().strip(),
+                        'title': link.get('title', '')
+                    })
+            
+            return links
+            
+        except Exception as e:
+            logger.error(f"Erro ao extrair links externos: {e}")
+            return []
+    
+    def get_posts_by_category(self, category_slug: str, limit: int = 20) -> List[Dict]:
+        """Busca posts por categoria específica"""
+        try:
+            # Primeiro, buscar ID da categoria
+            cat_response = requests.get(
+                f"{self.base_url}/categories",
+                params={'slug': category_slug},
+                auth=self.auth,
+                timeout=30
+            )
+            
+            if not cat_response.ok:
+                logger.error(f"Categoria '{category_slug}' não encontrada")
+                return []
+            
+            categories = cat_response.json()
+            if not categories:
+                return []
+            
+            category_id = categories[0]['id']
+            
+            # Buscar posts da categoria
+            url = f"{self.base_url}/posts"
+            params = {
+                'categories': category_id,
+                'per_page': min(limit, 100),
+                'status': 'publish',
+                'orderby': 'date',
+                'order': 'desc',
+                '_embed': True
+            }
+            
+            response = requests.get(url, params=params, auth=self.auth, timeout=30)
+            response.raise_for_status()
+            
+            return response.json()
+            
+        except Exception as e:
+            logger.error(f"Erro ao buscar posts por categoria: {e}")
+            return []
+    
+    def get_post_analytics_data(self, post_id: int) -> Dict:
+        """Busca dados analíticos básicos de um post via WordPress API"""
+        try:
+            url = f"{self.base_url}/posts/{post_id}"
+            params = {
+                '_embed': True,
+                '_fields': 'id,title,link,date,modified,categories,tags,comment_status,_embedded'
+            }
+            
+            response = requests.get(url, params=params, auth=self.auth, timeout=30)
+            response.raise_for_status()
+            
+            post_data = response.json()
+            
+            # Extrair dados úteis para analytics
+            analytics = {
+                'post_id': post_data.get('id'),
+                'title': post_data.get('title', {}).get('rendered', ''),
+                'url': post_data.get('link', ''),
+                'publish_date': post_data.get('date', ''),
+                'last_modified': post_data.get('modified', ''),
+                'categories': [cat.get('name', '') for cat in post_data.get('_embedded', {}).get('wp:term', [[]])[0]],
+                'tags': [tag.get('name', '') for tag in post_data.get('_embedded', {}).get('wp:term', [[], []])[1]],
+                'comments_enabled': post_data.get('comment_status') == 'open'
+            }
+            
+            return analytics
+            
+        except Exception as e:
+            logger.error(f"Erro ao buscar dados analíticos do post {post_id}: {e}")
+            return {}
 
 # Instância global
 wp_publisher = WordPressPublisher() 

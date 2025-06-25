@@ -8,12 +8,14 @@ from typing import Dict, Any, List, Optional
 import logging
 import hashlib
 from datetime import datetime
+import httpx
 
 from .config import settings
 from .database import db
 from .modules.ai_processor import ai_processor
 from .modules.wordpress_publisher import wp_publisher
 from .modules.gmail_client import gmail_client
+from .modules.realtime_notifications import realtime_manager
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -56,6 +58,11 @@ class ContentData(BaseModel):
     meta_descricao: Optional[str] = None
     tags: Optional[List[str]] = None
 
+# No início do arquivo, após os imports, adicionar função helper
+def get_service_key():
+    """Helper para obter service key do Supabase"""
+    return settings.secure_supabase_service_key or settings.SUPABASE_SERVICE_KEY
+
 # Endpoints
 
 @app.get("/")
@@ -75,39 +82,36 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Verificação de saúde do sistema"""
-    checks = {
-        "database": False,
-        "wordpress": False,
-        "gemini": False
-    }
+    """Health check com verificação de todos os serviços"""
+    checks = {}
     
+    # Testar Supabase (consolidar em uma única consulta)
     try:
-        # Testar Supabase
-        db.get_system_config("health_check")
+        # Usar uma consulta simples que testa conexão e RLS
+        test_result = db.client.table("system_config").select("key").limit(1).execute()
         checks["database"] = True
     except Exception as e:
-        logger.error(f"Erro no health check database: {e}")
+        logger.error(f"Erro no health check Supabase: {e}")
         checks["database"] = False
     
+    # Testar WordPress
     try:
-        # Testar WordPress
-        checks["wordpress"] = wp_publisher.test_connection()
+        checks["wordpress"] = wordpress_publisher.test_connection()
     except Exception as e:
         logger.error(f"Erro no health check WordPress: {e}")
         checks["wordpress"] = False
     
+    # Testar Gemini (gerar embedding simples)
     try:
-        # Testar Gemini (gerar embedding simples)
         test_embedding = ai_processor.generate_embedding("teste")
         checks["gemini"] = len(test_embedding) > 0
     except Exception as e:
         logger.error(f"Erro no health check Gemini: {e}")
         checks["gemini"] = False
     
-    # Testar Gmail
+    # Testar Gmail (verificar autenticação sem recarregar credenciais)
     try:
-        checks["gmail"] = gmail_client.authenticate()
+        checks["gmail"] = gmail_client.credentials is not None and gmail_client.credentials.valid
     except Exception as e:
         logger.error(f"Erro no health check Gmail: {e}")
         checks["gmail"] = False
@@ -547,6 +551,342 @@ async def migrate_credentials_endpoint():
         
     except Exception as e:
         logger.error(f"Erro na migração de credenciais: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/admin/populate-knowledge-base")
+async def populate_knowledge_base():
+    """Popula a knowledge base com posts existentes do WordPress"""
+    try:
+        # Buscar posts recentes do WordPress
+        posts = wordpress_publisher.get_recent_posts(limit=50)
+        
+        if not posts:
+            return {"message": "Nenhum post encontrado no WordPress", "count": 0}
+        
+        populated_count = 0
+        
+        for post in posts:
+            try:
+                # Extrair conteúdo limpo
+                content = wordpress_publisher.extract_clean_content(post.get('content', ''))
+                
+                if len(content) < 100:  # Ignorar posts muito pequenos
+                    continue
+                
+                # Gerar embedding
+                embedding = ai_processor.generate_embedding(content)
+                
+                if not embedding:
+                    continue
+                
+                # Preparar dados para inserção
+                kb_data = {
+                    'content_text': content,
+                    'embedding': embedding,
+                    'source_url': post.get('link', ''),
+                    'source_type': 'post',
+                    'topic': post.get('title', '')[:100],
+                    'category_recifemais': 'wordpress_existing',
+                    'metadata': {
+                        'wordpress_id': post.get('id'),
+                        'title': post.get('title', ''),
+                        'date': post.get('date', ''),
+                        'categories': post.get('categories', [])
+                    }
+                }
+                
+                # Inserir na knowledge base
+                result = db.client.table("knowledge_base").insert(kb_data).execute()
+                
+                if result.data:
+                    populated_count += 1
+                    
+            except Exception as e:
+                logger.error(f"Erro ao processar post {post.get('id')}: {e}")
+                continue
+        
+        return {
+            "message": f"Knowledge base populada com sucesso",
+            "posts_processed": len(posts),
+            "posts_added": populated_count
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro ao popular knowledge base: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Inicializar Realtime na startup
+@app.on_event("startup")
+async def startup_event():
+    """Inicialização da aplicação"""
+    try:
+        # Conectar ao Realtime
+        await realtime_manager.connect()
+        
+        # Registrar callback para logs
+        def log_notification(event_type: str, notification: dict):
+            logger.info(f"📡 Notificação Realtime: {event_type} - {notification.get('data', {}).get('subject', 'N/A')}")
+        
+        realtime_manager.subscribe("main_app", log_notification)
+        
+        logger.info("🚀 Aplicação iniciada com Realtime ativo")
+        
+    except Exception as e:
+        logger.error(f"❌ Erro na inicialização: {e}")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Limpeza na finalização"""
+    try:
+        await realtime_manager.disconnect()
+        logger.info("🔌 Aplicação finalizada")
+    except Exception as e:
+        logger.error(f"❌ Erro na finalização: {e}")
+
+@app.get("/admin/stats/realtime")
+async def get_realtime_stats():
+    """Estatísticas do sistema em tempo real"""
+    try:
+        stats = await realtime_manager.get_system_stats()
+        return stats
+    except Exception as e:
+        logger.error(f"Erro ao obter estatísticas realtime: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/admin/wordpress/analyze-external-links")
+async def analyze_external_links():
+    """Analisa posts com links externos para insights"""
+    try:
+        posts_with_links = wordpress_publisher.get_posts_with_external_links(limit=30)
+        
+        analysis = {
+            "total_posts_analyzed": len(posts_with_links),
+            "posts_with_external_links": 0,
+            "most_referenced_domains": {},
+            "link_analysis": []
+        }
+        
+        domain_count = {}
+        
+        for post in posts_with_links:
+            external_links = post.get('external_links', [])
+            if external_links:
+                analysis["posts_with_external_links"] += 1
+                
+                post_analysis = {
+                    "post_id": post.get('id'),
+                    "title": post.get('title', {}).get('rendered', ''),
+                    "link_count": len(external_links),
+                    "domains": []
+                }
+                
+                for link in external_links:
+                    try:
+                        from urllib.parse import urlparse
+                        domain = urlparse(link['url']).netloc
+                        domain_count[domain] = domain_count.get(domain, 0) + 1
+                        post_analysis["domains"].append(domain)
+                    except:
+                        continue
+                
+                analysis["link_analysis"].append(post_analysis)
+        
+        # Top 10 domínios mais referenciados
+        analysis["most_referenced_domains"] = dict(
+            sorted(domain_count.items(), key=lambda x: x[1], reverse=True)[:10]
+        )
+        
+        return analysis
+        
+    except Exception as e:
+        logger.error(f"Erro na análise de links externos: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/admin/wordpress/category-analysis/{category_slug}")
+async def analyze_category_content(category_slug: str):
+    """Analisa conteúdo de uma categoria específica"""
+    try:
+        posts = wordpress_publisher.get_posts_by_category(category_slug, limit=20)
+        
+        if not posts:
+            return {"message": f"Nenhum post encontrado na categoria '{category_slug}'"}
+        
+        # Processar posts para análise
+        analysis = {
+            "category": category_slug,
+            "total_posts": len(posts),
+            "posts_analyzed": [],
+            "avg_word_count": 0,
+            "common_keywords": {},
+            "publishing_frequency": {}
+        }
+        
+        total_words = 0
+        all_keywords = {}
+        
+        for post in posts:
+            # Extrair conteúdo limpo
+            content = wordpress_publisher.extract_clean_content(
+                post.get('content', {}).get('rendered', '')
+            )
+            
+            word_count = len(content.split())
+            total_words += word_count
+            
+            # Extrair data de publicação
+            pub_date = post.get('date', '')[:10]  # YYYY-MM-DD
+            analysis["publishing_frequency"][pub_date] = analysis["publishing_frequency"].get(pub_date, 0) + 1
+            
+            # Gerar embedding para análise futura
+            try:
+                embedding = ai_processor.generate_embedding(content)
+                
+                post_analysis = {
+                    "id": post.get('id'),
+                    "title": post.get('title', {}).get('rendered', ''),
+                    "word_count": word_count,
+                    "publish_date": pub_date,
+                    "has_embedding": len(embedding) > 0 if embedding else False
+                }
+                
+                analysis["posts_analyzed"].append(post_analysis)
+                
+            except Exception as e:
+                logger.error(f"Erro ao processar post {post.get('id')}: {e}")
+                continue
+        
+        # Calcular média de palavras
+        analysis["avg_word_count"] = total_words // len(posts) if posts else 0
+        
+        return analysis
+        
+    except Exception as e:
+        logger.error(f"Erro na análise de categoria: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/admin/edge-functions/process-email")
+async def process_email_via_edge(email_data: dict):
+    """Processa email usando Edge Function para escalabilidade"""
+    try:
+        # URL da Edge Function
+        edge_url = f"{settings.SUPABASE_URL}/functions/v1/email-processor"
+        
+        headers = {
+            "Authorization": f"Bearer {get_service_key()}",
+            "Content-Type": "application/json"
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                edge_url,
+                json=email_data,
+                headers=headers,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                
+                # Enviar notificação realtime
+                await realtime_manager.send_custom_notification(
+                    "edge_processing_complete",
+                    {
+                        "email_id": email_data.get("email_id"),
+                        "processing_result": result
+                    }
+                )
+                
+                return result
+            else:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Erro na Edge Function: {response.text}"
+                )
+                
+    except Exception as e:
+        logger.error(f"Erro ao processar via Edge Function: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/admin/edge-functions/analyze-sentiment")
+async def analyze_sentiment_via_edge(text_data: dict):
+    """Analisa sentimento usando Edge Function"""
+    try:
+        edge_url = f"{settings.SUPABASE_URL}/functions/v1/sentiment-analyzer"
+        
+        headers = {
+            "Authorization": f"Bearer {get_service_key()}",
+            "Content-Type": "application/json"
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                edge_url,
+                json=text_data,
+                headers=headers,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Erro na análise de sentimento: {response.text}"
+                )
+                
+    except Exception as e:
+        logger.error(f"Erro na análise de sentimento: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/admin/database-functions/processing-stats")
+async def get_processing_stats_from_db(days_back: int = 7):
+    """Usa função do banco para estatísticas de processamento"""
+    try:
+        result = db.client.rpc('get_processing_stats', {'days_back': days_back}).execute()
+        
+        if result.data:
+            stats = result.data[0]
+            
+            # Adicionar timestamp
+            stats['generated_at'] = datetime.now().isoformat()
+            
+            return stats
+        else:
+            return {"message": "Nenhuma estatística encontrada"}
+            
+    except Exception as e:
+        logger.error(f"Erro ao obter estatísticas do banco: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/admin/database-functions/calculate-relevance")
+async def calculate_content_relevance(content_data: dict):
+    """Usa função do banco para calcular relevância do conteúdo"""
+    try:
+        content_text = content_data.get('content_text', '')
+        keywords = content_data.get('keywords', [])
+        
+        if not content_text or not keywords:
+            raise HTTPException(status_code=400, detail="content_text e keywords são obrigatórios")
+        
+        result = db.client.rpc('calculate_content_relevance', {
+            'content_text': content_text,
+            'target_keywords': keywords
+        }).execute()
+        
+        if result.data:
+            relevance_score = result.data[0] if isinstance(result.data, list) else result.data
+            
+            return {
+                "content_length": len(content_text),
+                "keywords_count": len(keywords),
+                "relevance_score": relevance_score,
+                "analysis_timestamp": datetime.now().isoformat()
+            }
+        else:
+            return {"relevance_score": 0.0}
+            
+    except Exception as e:
+        logger.error(f"Erro ao calcular relevância: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
