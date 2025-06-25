@@ -6,7 +6,7 @@
 
 **Status:** ✅ CORRIGIDO no código (commits 79c007d e b8c95e7)
 
-**Problema:** O ambiente de produção ainda tem a versão antiga do código
+**Problema:** O ambiente de produção ainda tem a versão antiga do código + versões inconsistentes nos arquivos .env
 
 ## 🛠️ Solução Imediata
 
@@ -72,11 +72,19 @@ from .modules.wordpress_publisher import wp_publisher
 ### **Arquivos Alterados:**
 - `backend/main.py` - Todas as referências corrigidas
 - `backend/config.py` - Versão atualizada para 2.2.1
+- `config.prod.env` - Versão sincronizada para 2.2.1
+- `config.secure.env` - Versão sincronizada para 2.2.1
+- `MIGRATION_GUIDE.md` - Versão sincronizada para 2.2.1
+
+### **⚠️ CAUSA RAIZ IDENTIFICADA:**
+**Pydantic Settings** usa variáveis de ambiente como **prioridade máxima**, sobrescrevendo valores do código. Se o `.env` tem `APP_VERSION=2.2.0` e o `config.py` tem `2.2.1`, o sistema usa `2.2.0`.
 
 ## 🔍 Commits Relacionados
 
 - **79c007d** - 🔧 Corrigido import wordpress_publisher -> wp_publisher
 - **b8c95e7** - 📝 Atualizada versão para 2.2.1
+- **33b5270** - 🔥 HOTFIX: Scripts e documentação para resolver erro de import
+- **fa651bc** - 🔧 Corrigida inconsistência de versões nos arquivos de configuração
 
 ## 📞 Suporte
 
