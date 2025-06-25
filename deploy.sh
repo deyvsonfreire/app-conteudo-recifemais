@@ -1,81 +1,96 @@
 #!/bin/bash
 
 # ===========================================
-# SCRIPT DE DEPLOY - RecifeMais Conteúdo v2.4.0
+# RECIFEMAIS CONTEÚDO - DEPLOY SCRIPT v2.5.0
+# ===========================================
+# 🚀 Deploy otimizado para EasyPanel
 # ===========================================
 
-set -e  # Parar em caso de erro
+set -e  # Exit on any error
 
-echo "🚀 Iniciando deploy do RecifeMais Conteúdo v2.4.0..."
+echo "🚀 Iniciando deploy do RecifeMais Conteúdo v2.5.0..."
 
 # Verificar se estamos no diretório correto
-if [ ! -f "docker-compose.prod.yml" ]; then
-    echo "❌ Erro: Execute este script do diretório raiz do projeto"
+if [ ! -f "backend/main.py" ]; then
+    echo "❌ Erro: Execute este script na raiz do projeto"
     exit 1
 fi
 
-# Verificar se o arquivo .env.production existe
-if [ ! -f ".env.production" ]; then
-    echo "❌ Erro: Arquivo .env.production não encontrado"
-    echo "📝 Criando arquivo .env.production..."
-    cp config.prod.env .env.production
+# Copiar configuração de produção
+echo "📋 Configurando ambiente de produção..."
+cp config.prod.env .env
+
+# Verificar se Docker está rodando
+if ! docker info > /dev/null 2>&1; then
+    echo "❌ Erro: Docker não está rodando"
+    exit 1
 fi
 
-# Parar containers existentes
-echo "🛑 Parando containers existentes..."
-docker-compose -f docker-compose.prod.yml down --remove-orphans
+# Build da imagem
+echo "🔨 Construindo imagem Docker..."
+docker build -t recifemais-conteudo:latest .
 
-# Limpar imagens antigas (opcional)
-echo "🧹 Limpando imagens antigas..."
-docker system prune -f
-
-# Construir nova imagem
-echo "🔨 Construindo nova imagem..."
-docker-compose -f docker-compose.prod.yml build --no-cache
-
-# Iniciar serviços
-echo "▶️ Iniciando serviços..."
-docker-compose -f docker-compose.prod.yml up -d
-
-# Aguardar inicialização
-echo "⏳ Aguardando inicialização dos serviços..."
-sleep 30
-
-# Verificar saúde dos serviços
-echo "🏥 Verificando saúde dos serviços..."
-
-# Testar Redis
-if docker exec recifemais-redis redis-cli ping > /dev/null 2>&1; then
-    echo "✅ Redis: OK"
-else
-    echo "❌ Redis: FALHOU"
+# Verificar se a build foi bem-sucedida
+if [ $? -ne 0 ]; then
+    echo "❌ Erro na build da imagem Docker"
+    exit 1
 fi
 
-# Testar aplicação
+echo "✅ Build concluída com sucesso!"
+
+# Testar a imagem localmente (opcional)
+echo "🧪 Testando imagem..."
+docker run --rm -d --name recifemais-test -p 8001:8001 \
+    -e SUPABASE_URL="https://aoyrpadrrsckxbuadcnf.supabase.co" \
+    -e SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFveXJwYWRycnNja3hidWFkY25mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4MDY5MTksImV4cCI6MjA2NjM4MjkxOX0.BAkMkcWzUeLL9_G-qAEdOX-Nhjmr5WLSv_AOqvdxA74" \
+    recifemais-conteudo:latest
+
+# Aguardar container inicializar
+sleep 10
+
+# Testar health check
 if curl -f http://localhost:8001/health > /dev/null 2>&1; then
-    echo "✅ Aplicação: OK"
-    
-    # Mostrar status detalhado
-    echo "📊 Status detalhado:"
-    curl -s http://localhost:8001/health | jq . 2>/dev/null || curl -s http://localhost:8001/health
+    echo "✅ Teste de saúde passou!"
+    docker stop recifemais-test
 else
-    echo "❌ Aplicação: FALHOU"
-    echo "📋 Logs da aplicação:"
-    docker logs recifemais-backend --tail 20
+    echo "⚠️ Teste de saúde falhou, mas continuando deploy..."
+    docker stop recifemais-test || true
 fi
 
-# Mostrar informações finais
 echo ""
-echo "🎉 Deploy concluído!"
-echo "📍 URLs disponíveis:"
-echo "   - Health Check: http://localhost:8001/health"
-echo "   - API Info: http://localhost:8001/api"
-echo "   - Documentação: http://localhost:8001/docs"
-echo "   - Interface: http://localhost:8001/"
+echo "🎉 Deploy preparado com sucesso!"
 echo ""
-echo "📋 Comandos úteis:"
-echo "   - Ver logs: docker logs recifemais-backend -f"
-echo "   - Parar: docker-compose -f docker-compose.prod.yml down"
-echo "   - Reiniciar: docker-compose -f docker-compose.prod.yml restart"
+echo "📋 PRÓXIMOS PASSOS NO EASYPANEL:"
 echo ""
-echo "✨ Sistema pronto para uso!" 
+echo "1. 📁 UPLOAD:"
+echo "   - Faça upload de todo o projeto para o EasyPanel"
+echo "   - Ou use Git deploy se conectado ao repositório"
+echo ""
+echo "2. ⚙️ CONFIGURAÇÃO:"
+echo "   - Porta: 8001"
+echo "   - Comando: python -m uvicorn backend.main:app --host 0.0.0.0 --port 8001"
+echo "   - Dockerfile: Usar o Dockerfile existente"
+echo ""
+echo "3. 🌐 VARIÁVEIS DE AMBIENTE:"
+echo "   - Copie o conteúdo de config.prod.env"
+echo "   - Ou configure as variáveis principais:"
+echo "     * SUPABASE_URL=https://aoyrpadrrsckxbuadcnf.supabase.co"
+echo "     * SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+echo "     * ENVIRONMENT=production"
+echo ""
+echo "4. 🚀 APÓS DEPLOY:"
+echo "   - Acesse: https://seu-dominio.easypanel.host/health/dashboard"
+echo "   - Execute migração: https://seu-dominio.easypanel.host/admin/migrate-credentials"
+echo "   - Configure OAuth: https://seu-dominio.easypanel.host/auth/gmail"
+echo ""
+echo "📞 SUPORTE:"
+echo "   - Health Check: /health"
+echo "   - Dashboard: /health/dashboard"
+echo "   - Logs: /admin/stats/realtime"
+echo ""
+echo "🔗 ENDPOINTS PRINCIPAIS:"
+echo "   - Interface: /"
+echo "   - API Docs: /docs"
+echo "   - Admin: /admin/secure-config"
+echo "   - Gmail Auth: /auth/gmail"
+echo "" 

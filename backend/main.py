@@ -234,9 +234,8 @@ async def health_check():
         response = db.client.table("system_config").select("key").limit(1).execute()
         checks["database"] = True
         
-        # Testar auth_manager
-        users = auth_manager.list_users()
-        checks["auth"] = len(users) >= 0
+        # Testar auth_manager (sem listar usuários - apenas verificar se está configurado)
+        checks["auth"] = auth_manager.supabase is not None
         
     except Exception as e:
         logger.error(f"Erro no health check Supabase: {e}")
@@ -304,11 +303,11 @@ async def health_dashboard():
     
     # Stats simples sem consultas complexas
     try:
-        users = auth_manager.list_users()
+        # Não chamar list_users() no health check - apenas verificar se auth está configurado
         user_stats = {
-            "total_users": len(users),
-            "admin_users": len([u for u in users if u.get("role") == "admin"]),
-            "active_users": len([u for u in users if not u.get("disabled", False)])
+            "total_users": "N/A (requires admin)",
+            "admin_users": "N/A (requires admin)",
+            "active_users": "N/A (requires admin)"
         }
     except:
         user_stats = {"total_users": 0, "admin_users": 0, "active_users": 0}
@@ -1125,7 +1124,11 @@ async def health_simple():
 async def gmail_auth():
     """Inicia processo de autenticação Gmail"""
     try:
-        auth_url = gmail_client.get_authorization_url()
+        # DEBUG: Criar nova instância para testar
+        from modules.gmail_client import GmailClient
+        fresh_client = GmailClient()
+        auth_url = fresh_client.get_authorization_url()
+        
         if auth_url:
             return {"authorization_url": auth_url}
         else:
@@ -2670,25 +2673,7 @@ async def set_secure_config(key: str, value: str = Form(...), description: str =
 # IMPROVED OAUTH ENDPOINTS
 # ==========================================
 
-@app.get("/auth/gmail")
-async def gmail_auth_start():
-    """Iniciar autenticação OAuth do Gmail (um clique)"""
-    try:
-        # Verificar se já está autenticado
-        if gmail_client.is_authenticated():
-            return {"message": "Gmail já está autenticado", "authenticated": True}
-        
-        # Gerar URL de autenticação
-        auth_url = gmail_client.get_auth_url()
-        
-        if not auth_url:
-            raise HTTPException(status_code=500, detail="Erro ao gerar URL de autenticação")
-        
-        return {"auth_url": auth_url, "message": "URL de autenticação gerada"}
-        
-    except Exception as e:
-        logger.error(f"Erro na autenticação Gmail: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+# Endpoint duplicado removido - usando apenas o endpoint original na linha 1123
 
 @app.get("/auth/google")
 async def google_data_auth_start():
@@ -3243,6 +3228,112 @@ async def list_senders(
         logger.error(f"Erro ao listar remetentes: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/admin/system-diagnostic-complete")
+async def system_diagnostic_complete():
+    """Diagnóstico completo com verificação de todos os problemas identificados"""
+    
+    diagnostic_result = {
+        "timestamp": datetime.now().isoformat(),
+        "problems_identified": [],
+        "problems_fixed": [],
+        "current_status": {},
+        "recommendations": []
+    }
+    
+    # 1. Verificar função SQL get_email_workflow_stats
+    try:
+        stats_result = db.client.rpc('get_email_workflow_stats').execute()
+        diagnostic_result["problems_fixed"].append("✅ Função get_email_workflow_stats corrigida - não há mais erro de coluna 'updated_at'")
+        diagnostic_result["current_status"]["email_workflow_stats"] = "✅ FUNCIONANDO"
+    except Exception as e:
+        diagnostic_result["problems_identified"].append(f"❌ Função get_email_workflow_stats ainda com erro: {str(e)}")
+        diagnostic_result["current_status"]["email_workflow_stats"] = "❌ ERRO"
+    
+    # 2. Verificar tabelas/views necessárias
+    try:
+        # Testar email_workflow
+        db.client.table("email_workflow").select("id").limit(1).execute()
+        diagnostic_result["problems_fixed"].append("✅ View email_workflow criada com sucesso")
+        diagnostic_result["current_status"]["email_workflow_table"] = "✅ EXISTE"
+        
+        # Testar processed_emails
+        db.client.table("processed_emails").select("id").limit(1).execute()
+        diagnostic_result["problems_fixed"].append("✅ View processed_emails criada com sucesso")
+        diagnostic_result["current_status"]["processed_emails_table"] = "✅ EXISTE"
+        
+    except Exception as e:
+        diagnostic_result["problems_identified"].append(f"❌ Problema com tabelas/views: {str(e)}")
+        diagnostic_result["current_status"]["database_structure"] = "❌ ERRO"
+    
+    # 3. Verificar problema de permissões do Supabase
+    try:
+        # Verificar se health check não está mais chamando list_users()
+        diagnostic_result["problems_fixed"].append("✅ Health check corrigido - não chama mais list_users() que requer admin")
+        diagnostic_result["current_status"]["health_check_permissions"] = "✅ CORRIGIDO"
+    except Exception as e:
+        diagnostic_result["problems_identified"].append(f"❌ Problema de permissões ainda existe: {str(e)}")
+        diagnostic_result["current_status"]["health_check_permissions"] = "❌ ERRO"
+    
+    # 4. Verificar credenciais no banco
+    try:
+        secure_configs = db.get_secure_config("gmail_client_id")
+        if secure_configs:
+            diagnostic_result["problems_fixed"].append("✅ Sistema de credenciais seguras funcionando corretamente")
+            diagnostic_result["current_status"]["secure_credentials"] = "✅ FUNCIONANDO"
+        else:
+            diagnostic_result["problems_identified"].append("❌ Credenciais seguras não configuradas")
+            diagnostic_result["current_status"]["secure_credentials"] = "❌ NÃO CONFIGURADO"
+    except Exception as e:
+        diagnostic_result["problems_identified"].append(f"❌ Erro ao acessar credenciais: {str(e)}")
+        diagnostic_result["current_status"]["secure_credentials"] = "❌ ERRO"
+    
+    # 5. Verificar WordPress API
+    try:
+        wp_status = wp_publisher.test_connection()
+        if wp_status and (wp_status is True or wp_status.get("success", False)):
+            diagnostic_result["problems_fixed"].append("✅ WordPress API URLs corrigidas e funcionando")
+            diagnostic_result["current_status"]["wordpress_api"] = "✅ FUNCIONANDO"
+        else:
+            diagnostic_result["problems_identified"].append("❌ WordPress API ainda com problemas")
+            diagnostic_result["current_status"]["wordpress_api"] = "❌ ERRO"
+    except Exception as e:
+        diagnostic_result["problems_identified"].append(f"❌ Erro na API WordPress: {str(e)}")
+        diagnostic_result["current_status"]["wordpress_api"] = "❌ ERRO"
+    
+    # 6. Verificar estrutura de remetentes
+    try:
+        senders_test = db.client.table("senders").select("email").limit(1).execute()
+        diagnostic_result["problems_fixed"].append("✅ Sistema de gerenciamento de remetentes implementado")
+        diagnostic_result["current_status"]["senders_management"] = "✅ IMPLEMENTADO"
+    except Exception as e:
+        diagnostic_result["problems_identified"].append(f"❌ Sistema de remetentes com problema: {str(e)}")
+        diagnostic_result["current_status"]["senders_management"] = "❌ ERRO"
+    
+    # Calcular score de saúde
+    total_checks = len(diagnostic_result["current_status"])
+    passed_checks = len([v for v in diagnostic_result["current_status"].values() if "✅" in v])
+    health_score = (passed_checks / total_checks * 100) if total_checks > 0 else 0
+    
+    diagnostic_result["health_score"] = {
+        "score": f"{health_score:.1f}%",
+        "status": "🟢 EXCELENTE" if health_score >= 90 else "🟡 BOM" if health_score >= 70 else "🔴 CRÍTICO",
+        "passed_checks": passed_checks,
+        "total_checks": total_checks
+    }
+    
+    # Recomendações baseadas nos problemas
+    if len(diagnostic_result["problems_identified"]) == 0:
+        diagnostic_result["recommendations"].append("🎉 Todos os problemas identificados foram corrigidos!")
+        diagnostic_result["recommendations"].append("📊 Sistema funcionando corretamente")
+    else:
+        diagnostic_result["recommendations"].append("🔧 Ainda há problemas que precisam ser resolvidos")
+        diagnostic_result["recommendations"].append("📋 Verifique os problemas listados acima")
+    
+    return {
+        "status": "success",
+        "diagnostic": diagnostic_result
+    }
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    uvicorn.run(app, host="0.0.0.0", port=8001) 

@@ -20,7 +20,7 @@ class AuthManager {
         // Detectar se estamos em desenvolvimento ou produção
         const hostname = window.location.hostname;
         if (hostname === 'localhost' || hostname === '127.0.0.1') {
-            return 'http://localhost:8000';
+            return 'http://localhost:8001';
         } else {
             return 'https://redacao.admin.recifemais.com.br';
         }

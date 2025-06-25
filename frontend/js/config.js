@@ -710,6 +710,158 @@ class ConfigManager {
             appController.showToastNotification('Erro ao copiar log', 'error');
         });
     }
+
+    // Função para diagnóstico completo
+    async runCompleteDiagnostic() {
+        showNotification('🔍 Executando diagnóstico completo...', 'info');
+        
+        try {
+            const response = await fetch('/admin/system-diagnostic-complete');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                const diagnostic = data.diagnostic;
+                
+                // Construir conteúdo do modal
+                let modalContent = `
+                    <div class="diagnostic-tabs">
+                        <div class="tab-buttons">
+                            <button class="tab-btn active" data-tab="summary">Resumo</button>
+                            <button class="tab-btn" data-tab="fixed">Problemas Corrigidos</button>
+                            <button class="tab-btn" data-tab="current">Status Atual</button>
+                            <button class="tab-btn" data-tab="issues">Problemas Pendentes</button>
+                        </div>
+                        
+                        <div class="tab-content">
+                            <div class="tab-panel active" id="summary">
+                                <div class="health-score-big">
+                                    <div class="score-circle ${diagnostic.health_score.score.includes('100') ? 'excellent' : 
+                                        diagnostic.health_score.score.includes('9') ? 'good' : 'critical'}">
+                                        <span class="score-number">${diagnostic.health_score.score}</span>
+                                        <span class="score-label">Saúde do Sistema</span>
+                                    </div>
+                                    <div class="score-details">
+                                        <p><strong>Status:</strong> ${diagnostic.health_score.status}</p>
+                                        <p><strong>Verificações:</strong> ${diagnostic.health_score.passed_checks}/${diagnostic.health_score.total_checks} aprovadas</p>
+                                        <p><strong>Timestamp:</strong> ${new Date(diagnostic.timestamp).toLocaleString('pt-BR')}</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="recommendations">
+                                    <h4>📋 Recomendações</h4>
+                                    ${diagnostic.recommendations.map(rec => `<p>${rec}</p>`).join('')}
+                                </div>
+                            </div>
+                            
+                            <div class="tab-panel" id="fixed">
+                                <h4>✅ Problemas Corrigidos (${diagnostic.problems_fixed.length})</h4>
+                                ${diagnostic.problems_fixed.length > 0 ? 
+                                    diagnostic.problems_fixed.map(fix => `<div class="status-item success">${fix}</div>`).join('') :
+                                    '<p class="text-muted">Nenhum problema foi corrigido nesta execução.</p>'
+                                }
+                            </div>
+                            
+                            <div class="tab-panel" id="current">
+                                <h4>📊 Status Atual dos Componentes</h4>
+                                <div class="status-grid">
+                                    ${Object.entries(diagnostic.current_status).map(([key, status]) => `
+                                        <div class="status-card ${status.includes('✅') ? 'success' : 'error'}">
+                                            <div class="status-icon">${status.includes('✅') ? '✅' : '❌'}</div>
+                                            <div class="status-info">
+                                                <div class="status-name">${key.replace(/_/g, ' ').toUpperCase()}</div>
+                                                <div class="status-value">${status}</div>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            
+                            <div class="tab-panel" id="issues">
+                                <h4>⚠️ Problemas Pendentes (${diagnostic.problems_identified.length})</h4>
+                                ${diagnostic.problems_identified.length > 0 ? 
+                                    diagnostic.problems_identified.map(issue => `<div class="status-item error">${issue}</div>`).join('') :
+                                    '<div class="status-item success">🎉 Nenhum problema identificado! Sistema funcionando perfeitamente.</div>'
+                                }
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Criar e mostrar modal
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+                modal.innerHTML = `
+                    <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-2xl font-bold">🔍 Diagnóstico Completo do Sistema</h2>
+                            <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        ${modalContent}
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                // Adicionar event listeners para as abas
+                modal.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        // Remover active de todas as abas
+                        modal.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                        modal.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                        
+                        // Ativar aba clicada
+                        e.target.classList.add('active');
+                        modal.querySelector(`#${e.target.dataset.tab}`).classList.add('active');
+                    });
+                });
+                
+                // Mostrar notificação baseada no resultado
+                if (diagnostic.problems_identified.length === 0) {
+                    showNotification('🎉 Diagnóstico completo! Sistema funcionando perfeitamente.', 'success');
+                } else {
+                    showNotification(`⚠️ Diagnóstico concluído. ${diagnostic.problems_identified.length} problema(s) identificado(s).`, 'warning');
+                }
+                
+            } else {
+                throw new Error(data.message || 'Erro no diagnóstico');
+            }
+            
+        } catch (error) {
+            console.error('Erro no diagnóstico completo:', error);
+            showNotification('❌ Erro ao executar diagnóstico completo: ' + error.message, 'error');
+        }
+    }
+
+    // Função para testar todas as conexões
+    async testAllConnections() {
+        showNotification('🔗 Testando todas as conexões...', 'info');
+        
+        try {
+            const response = await fetch('/admin/system-diagnostic');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                const score = parseFloat(data.diagnostic.health_score.score);
+                if (score >= 90) {
+                    showNotification(`✅ Todas as conexões OK! Score: ${data.diagnostic.health_score.score}`, 'success');
+                } else if (score >= 70) {
+                    showNotification(`⚠️ Algumas conexões com problemas. Score: ${data.diagnostic.health_score.score}`, 'warning');
+                } else {
+                    showNotification(`❌ Problemas críticos detectados. Score: ${data.diagnostic.health_score.score}`, 'error');
+                }
+            } else {
+                throw new Error(data.message || 'Erro no teste de conexões');
+            }
+            
+        } catch (error) {
+            console.error('Erro no teste de conexões:', error);
+            showNotification('❌ Erro ao testar conexões: ' + error.message, 'error');
+        }
+    }
 }
 
 // Instância global

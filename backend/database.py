@@ -129,21 +129,18 @@ class SupabaseManager:
             # Converter embedding para formato compatível com pgvector
             embedding_str = f"[{','.join(map(str, embedding))}]"
             
-            # Buscar conteúdo similar usando cosine similarity
-            result = self.client.table("knowledge_base")\
-                .select("content_text, source_url, topic, category_recifemais, metadata")\
-                .rpc("match_documents", {
-                    "query_embedding": embedding_str,
-                    "match_threshold": 0.7,
-                    "match_count": limit
-                })\
-                .execute()
+            # CORREÇÃO: Chamar RPC diretamente no client, não na table
+            result = self.client.rpc("match_documents", {
+                "query_embedding": embedding_str,
+                "match_threshold": 0.7,
+                "match_count": limit
+            }).execute()
             
             if result.data:
                 return result.data
             
-            # Fallback: busca simples por tópico se não tiver função RPC
-            logger.warning("Função match_documents não encontrada, usando busca simples")
+            # Fallback: busca simples por tópico se não tiver função RPC ou dados
+            logger.warning("Função match_documents retornou vazio, usando busca simples")
             result = self.client.table("knowledge_base")\
                 .select("content_text, source_url, topic, category_recifemais, metadata")\
                 .limit(limit)\

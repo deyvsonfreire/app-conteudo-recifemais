@@ -63,13 +63,32 @@ class EmailWorkflowManager:
                 'p_days_back': days_back
             }).execute()
             
-            if result.data:
-                return result.data[0] if result.data else {}
-            
-            return {}
+            # A função RPC retorna um dict diretamente, não uma lista
+            if result.data and isinstance(result.data, dict):
+                return result.data
+            elif result.data and isinstance(result.data, list) and len(result.data) > 0:
+                return result.data[0]
+            else:
+                logger.warning("Função get_email_workflow_stats retornou dados vazios")
+                return {}
             
         except Exception as e:
             logger.error(f"Erro ao obter stats do dashboard: {e}")
+            # Fallback: retornar stats básicas calculadas manualmente
+            try:
+                basic_stats = self.db.client.from_("email_cache").select("workflow_stage, priority").execute()
+                if basic_stats.data:
+                    total = len(basic_stats.data)
+                    pending = len([e for e in basic_stats.data if e['workflow_stage'] in ['received', 'analyzed']])
+                    return {
+                        "total_emails": total,
+                        "pending_review": pending,
+                        "ready_to_publish": len([e for e in basic_stats.data if e['workflow_stage'] == 'ready_publish']),
+                        "published_today": 0
+                    }
+            except:
+                pass
+            
             return {}
     
     def list_emails(self, 

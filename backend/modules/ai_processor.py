@@ -18,11 +18,14 @@ import tiktoken
 
 logger = logging.getLogger(__name__)
 
-# Configurar Gemini
-genai.configure(api_key=settings.secure_google_ai_api_key)
+# Configurar Gemini - será reconfigurado dinamicamente
+# genai.configure(api_key=settings.secure_google_ai_api_key)
 
 class AIProcessor:
     def __init__(self):
+        # Configurar API key dinamicamente
+        self._configure_gemini()
+        
         self.model = genai.GenerativeModel(
             settings.GEMINI_MODEL,
             generation_config=genai.types.GenerationConfig(
@@ -34,6 +37,18 @@ class AIProcessor:
         )
         self.encoding = tiktoken.get_encoding("cl100k_base")
         self._embedding_cache = {}  # Cache simples para embeddings
+    
+    def _configure_gemini(self):
+        """Configura a API key do Gemini dinamicamente"""
+        try:
+            api_key = settings.secure_google_ai_api_key
+            if api_key:
+                genai.configure(api_key=api_key)
+                logger.info("Gemini configurado com nova API key")
+            else:
+                logger.error("API key do Gemini não encontrada")
+        except Exception as e:
+            logger.error(f"Erro ao configurar Gemini: {e}")
     
     def count_tokens(self, text: str) -> int:
         """Conta tokens no texto"""
@@ -135,6 +150,14 @@ class AIProcessor:
         
         return prompt
     
+    def search_similar_content(self, embedding: List[float], limit: int = 3) -> List[Dict]:
+        """Busca conteúdo similar usando o database"""
+        try:
+            return db.search_similar_content(embedding, limit)
+        except Exception as e:
+            logger.error(f"Erro ao buscar conteúdo similar: {e}")
+            return []
+    
     def process_email_content(self, email_content: str, email_hash: str) -> Optional[Dict[str, Any]]:
         """Processa conteúdo do email com IA"""
         try:
@@ -143,7 +166,7 @@ class AIProcessor:
             similar_content = []
             
             if embedding:
-                similar_content = db.search_similar_content(embedding, limit=3)
+                similar_content = self.search_similar_content(embedding, limit=3)
             
             # Criar prompt editorial
             prompt = self.create_editorial_prompt(email_content, similar_content)

@@ -6,50 +6,82 @@ from pydantic_settings import BaseSettings
 from typing import Optional
 
 class Settings(BaseSettings):
-    # Configurações gerais
+    # Configurações básicas
     APP_NAME: str = "RecifeMais Conteúdo"
-    APP_VERSION: str = "2.4.0"
+    APP_VERSION: str = "2.5.0"
     DEBUG: bool = False
+    ENVIRONMENT: str = "development"
+    PORT: int = 8001
     
-    # URLs e Endpoints - PRODUÇÃO
+    # URLs
+    BASE_URL: str = "http://localhost:8001"
     WORDPRESS_URL: str = "https://recifemais.com.br"
-    GMAIL_REDIRECT_URI: str = "https://redacao.admin.recifemais.com.br/auth/callback"
-    BASE_URL: str = "https://redacao.admin.recifemais.com.br"
+    GMAIL_REDIRECT_URI: str = "http://localhost:8001/auth/callback"
     
-    # Configurações Google Data (Search Console + Analytics)
-    GSC_SITE_URL: str = "https://recifemais.com.br/"
-    GA4_PROPERTY_ID: str = ""  # Será configurado via admin
+    # Supabase
+    SUPABASE_URL: str
+    SUPABASE_ANON_KEY: str
+    SUPABASE_SERVICE_KEY: str
+    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
     
-    # Supabase - URLs públicos
-    SUPABASE_URL: str = "https://aoyrpadrrsckxbuadcnf.supabase.co"
-    SUPABASE_ANON_KEY: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFveXJwYWRycnNja3hidWFkY25mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4MDY5MTksImV4cCI6MjA2NjM4MjkxOX0.BAkMkcWzUeLL9_G-qAEdOX-Nhjmr5WLSv_AOqvdxA74"
-    
-    # Credenciais sensíveis (fallback do .env, mas prioriza banco de dados)
+    # Google AI (Gemini) - PRIORIDADE 1
     GOOGLE_AI_API_KEY: Optional[str] = None
+    
+    # Gmail OAuth - PRIORIDADE 1
     GMAIL_CLIENT_ID: Optional[str] = None
     GMAIL_CLIENT_SECRET: Optional[str] = None
+    
+    # Google Data - PRIORIDADE 2
+    GSC_SITE_URL: Optional[str] = None
+    GA4_PROPERTY_ID: Optional[str] = None
+    
+    # WordPress
     WORDPRESS_USERNAME: Optional[str] = None
     WORDPRESS_PASSWORD: Optional[str] = None
     
-    # SUPABASE_SERVICE_KEY - temporariamente no .env para evitar dependência circular
-    SUPABASE_SERVICE_KEY: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFveXJwYWRycnNja3hidWFkY25mIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDgwNjkxOSwiZXhwIjoyMDY2MzgyOTE5fQ.EWx1wZZutcONrJYSzF2r1mvuav0KilXuPOOoWJYjAyc"
+    # ===========================================
+    # META/FACEBOOK INTEGRATION
+    # ===========================================
+    FACEBOOK_APP_ID: Optional[str] = None
+    FACEBOOK_APP_SECRET: Optional[str] = None
+    FACEBOOK_ACCESS_TOKEN: Optional[str] = None
+    INSTAGRAM_ACCOUNT_ID: Optional[str] = None
     
-    # Cache Redis (para desenvolvimento local)
-    REDIS_URL: str = "redis://localhost:6379"
-    
-    # Configurações de IA
+    # IA Configurations
     MAX_TOKENS_PER_REQUEST: int = 8000
     EMBEDDING_MODEL: str = "text-embedding-004"
     GEMINI_MODEL: str = "gemini-2.0-flash-exp"
     
-    # Configurações de processamento
-    EMAIL_CHECK_INTERVAL: int = 300  # 5 minutos
+    # Processing
+    EMAIL_CHECK_INTERVAL: int = 300
     MAX_EMAILS_PER_BATCH: int = 10
     
+    # Cache
+    REDIS_URL: str = "redis://localhost:6379"
+    
+    # Logs
+    LOG_LEVEL: str = "INFO"
+    
+    # Performance
+    HTTP_TIMEOUT: int = 30
+    CACHE_TTL: int = 3600
+    
+    # CORS
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8001"
+    
+    # Feature Flags
+    ENABLE_GOOGLE_DATA_INTEGRATION: bool = True
+    ENABLE_WORDPRESS_PUBLISHING: bool = True
+    ENABLE_EMAIL_PROCESSING: bool = True
+    ENABLE_USER_MANAGEMENT: bool = True
+    ENABLE_ANALYTICS_DASHBOARD: bool = True
+    ENABLE_META_INTEGRATION: bool = True
+
     class Config:
         env_file = ".env"
-        case_sensitive = True
-        extra = "ignore"  # Ignorar campos extras do .env
+        env_file_encoding = "utf-8"
+        # Tentar carregar de múltiplos arquivos de configuração
+        env_files = [".env", "config.local.env", "config.prod.env"]
     
     def get_secure_credential(self, key: str) -> Optional[str]:
         """
@@ -117,6 +149,26 @@ class Settings(BaseSettings):
     def secure_ga4_property_id(self) -> Optional[str]:
         """Property ID do Google Analytics 4"""
         return self.get_secure_credential("ga4_property_id") or self.GA4_PROPERTY_ID
+    
+    @property
+    def secure_facebook_app_id(self) -> Optional[str]:
+        """ID do aplicativo Facebook"""
+        return self.get_secure_credential("facebook_app_id") or self.FACEBOOK_APP_ID
+    
+    @property
+    def secure_facebook_app_secret(self) -> Optional[str]:
+        """Chave secreta do aplicativo Facebook"""
+        return self.get_secure_credential("facebook_app_secret") or self.FACEBOOK_APP_SECRET
+    
+    @property
+    def secure_facebook_access_token(self) -> Optional[str]:
+        """Token de acesso do Facebook"""
+        return self.get_secure_credential("facebook_access_token") or self.FACEBOOK_ACCESS_TOKEN
+    
+    @property
+    def secure_instagram_account_id(self) -> Optional[str]:
+        """ID da conta Instagram Business"""
+        return self.get_secure_credential("instagram_account_id") or self.INSTAGRAM_ACCOUNT_ID
 
 # Instância global das configurações
 settings = Settings() 

@@ -80,6 +80,173 @@
         .test-btn:active, .diagnostic-btn:active {
             transform: translateY(-1px);
         }
+        
+        /* Estilos para o modal de diagnóstico completo */
+        .diagnostic-tabs {
+            margin-top: 20px;
+        }
+        
+        .tab-buttons {
+            display: flex;
+            border-bottom: 2px solid #e5e7eb;
+            margin-bottom: 20px;
+        }
+        
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            color: #6b7280;
+            transition: all 0.2s;
+        }
+        
+        .tab-btn.active {
+            color: #2563eb;
+            border-bottom: 2px solid #2563eb;
+            background: #eff6ff;
+        }
+        
+        .tab-btn:hover {
+            background: #f3f4f6;
+        }
+        
+        .tab-panel {
+            display: none;
+        }
+        
+        .tab-panel.active {
+            display: block;
+        }
+        
+        .health-score-big {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            color: white;
+        }
+        
+        .score-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+        }
+        
+        .score-circle.excellent {
+            border: 4px solid #10b981;
+        }
+        
+        .score-circle.good {
+            border: 4px solid #f59e0b;
+        }
+        
+        .score-circle.critical {
+            border: 4px solid #ef4444;
+        }
+        
+        .score-number {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .score-label {
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        
+        .score-details p {
+            margin: 5px 0;
+            font-size: 16px;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .status-card {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .status-card.success {
+            background: #f0fdf4;
+            border-color: #10b981;
+        }
+        
+        .status-card.error {
+            background: #fef2f2;
+            border-color: #ef4444;
+        }
+        
+        .status-icon {
+            font-size: 24px;
+        }
+        
+        .status-name {
+            font-weight: 600;
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        .status-value {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .status-item {
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 6px;
+            border-left: 4px solid;
+        }
+        
+        .status-item.success {
+            background: #f0fdf4;
+            border-color: #10b981;
+            color: #065f46;
+        }
+        
+        .status-item.error {
+            background: #fef2f2;
+            border-color: #ef4444;
+            color: #991b1b;
+        }
+        
+        .recommendations {
+            background: #fef3c7;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #f59e0b;
+        }
+        
+        .recommendations h4 {
+            margin-bottom: 10px;
+            color: #92400e;
+        }
+        
+        .recommendations p {
+            margin: 5px 0;
+            color: #92400e;
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -863,13 +1030,22 @@
                         </div>
                     </div>
 
-                    <div class="settings-actions">
-                        <button onclick="testConnections()" class="test-btn">
-                            🔍 Testar Conexões
-                        </button>
-                        <button onclick="configManager.runSystemDiagnostic()" class="diagnostic-btn">
-                            🔍 Diagnóstico Completo
-                        </button>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-lg font-semibold mb-4">🔧 Ferramentas de Sistema</h3>
+                        <div class="space-y-3">
+                            <button onclick="configManager.runSystemDiagnostic()" 
+                                    class="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors">
+                                🩺 Executar Diagnóstico
+                            </button>
+                            <button onclick="configManager.runCompleteDiagnostic()" 
+                                    class="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors">
+                                🔍 Diagnóstico Completo
+                            </button>
+                            <button onclick="configManager.testAllConnections()" 
+                                    class="w-full bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 transition-colors">
+                                🔗 Testar Conexões
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
