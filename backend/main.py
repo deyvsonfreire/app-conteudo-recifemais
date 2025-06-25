@@ -43,7 +43,12 @@ app.add_middleware(
 )
 
 # Configurar arquivos estáticos (frontend)
-frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+# No Docker, o frontend está em /app/frontend
+frontend_path = os.path.join("/app", "frontend")
+if not os.path.exists(frontend_path):
+    # Fallback para desenvolvimento local
+    frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+
 if os.path.exists(frontend_path):
     app.mount("/static", StaticFiles(directory=frontend_path), name="static")
 
@@ -99,7 +104,12 @@ def get_service_key():
 @app.get("/")
 async def root():
     """Serve a interface web principal"""
-    frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+    # No Docker, o frontend está em /app/frontend
+    frontend_path = os.path.join("/app", "frontend")
+    if not os.path.exists(frontend_path):
+        # Fallback para desenvolvimento local
+        frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+    
     index_path = os.path.join(frontend_path, "index.html")
     
     if os.path.exists(index_path):
