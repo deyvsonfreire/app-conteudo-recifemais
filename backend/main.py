@@ -3148,6 +3148,101 @@ async def system_diagnostic():
         }
     }
 
+# ==========================================
+# SENDER MANAGEMENT ENDPOINTS
+# ==========================================
+
+class SenderInfo(BaseModel):
+    email: str
+    name: Optional[str] = None
+    organization: Optional[str] = None
+    type: str = "unknown"  # journalist, press_office, government, company, citizen, ngo
+    priority: int = 3  # 1=alta, 2=média, 3=baixa
+    notes: Optional[str] = None
+    auto_approve: bool = False
+
+@app.get("/senders/{sender_email}")
+async def get_sender_info(
+    sender_email: str,
+    current_user: Dict = Depends(auth_manager.require_permission("content"))
+):
+    """Obter informações de um remetente"""
+    try:
+        response = db.client.from_("senders").select("*").eq("email", sender_email).execute()
+        
+        if response.data and len(response.data) > 0:
+            return response.data[0]
+        else:
+            raise HTTPException(status_code=404, detail="Remetente não encontrado")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao buscar remetente: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/senders")
+async def create_or_update_sender(
+    sender_data: SenderInfo,
+    current_user: Dict = Depends(auth_manager.require_permission("content"))
+):
+    """Criar ou atualizar informações de um remetente"""
+    try:
+        # Verificar se já existe
+        existing = db.client.from_("senders").select("id").eq("email", sender_data.email).execute()
+        
+        data = {
+            "email": sender_data.email,
+            "name": sender_data.name,
+            "organization": sender_data.organization,
+            "type": sender_data.type,
+            "priority": sender_data.priority,
+            "notes": sender_data.notes,
+            "auto_approve": sender_data.auto_approve,
+            "updated_at": datetime.now().isoformat(),
+            "updated_by": current_user["id"]
+        }
+        
+        if existing.data:
+            # Atualizar existente
+            response = db.client.from_("senders").update(data).eq("email", sender_data.email).execute()
+        else:
+            # Criar novo
+            data["created_at"] = datetime.now().isoformat()
+            data["created_by"] = current_user["id"]
+            response = db.client.from_("senders").insert(data).execute()
+        
+        return {"success": True, "message": "Informações do remetente salvas com sucesso"}
+        
+    except Exception as e:
+        logger.error(f"Erro ao salvar remetente: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/senders")
+async def list_senders(
+    type_filter: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    current_user: Dict = Depends(auth_manager.require_permission("content"))
+):
+    """Listar remetentes cadastrados"""
+    try:
+        query = db.client.from_("senders").select("*")
+        
+        if type_filter:
+            query = query.eq("type", type_filter)
+        
+        response = query.range(offset, offset + limit - 1).order("name", desc=False).execute()
+        
+        return {
+            "senders": response.data if response.data else [],
+            "total": len(response.data) if response.data else 0
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro ao listar remetentes: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000) 

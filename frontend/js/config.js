@@ -497,6 +497,219 @@ class ConfigManager {
             }
         }, 300000);
     }
+
+    // ==========================================
+    // DIAGNOSTIC FUNCTIONS
+    // ==========================================
+    
+    async runSystemDiagnostic() {
+        try {
+            showLoading('🔍 Executando diagnóstico completo do sistema...');
+            
+            const response = await authManager.apiCall('/admin/system-diagnostic');
+            
+            if (response.ok) {
+                const result = await response.json();
+                this.displayDiagnosticResults(result);
+                appController.showToastNotification('Diagnóstico concluído com sucesso!', 'success');
+            } else {
+                throw new Error('Erro ao executar diagnóstico');
+            }
+            
+        } catch (error) {
+            console.error('Erro no diagnóstico:', error);
+            appController.showToastNotification('Erro no diagnóstico: ' + error.message, 'error');
+        } finally {
+            hideLoading();
+        }
+    }
+    
+    displayDiagnosticResults(result) {
+        const modal = this.createDiagnosticModal();
+        const content = document.getElementById('diagnosticContent');
+        
+        if (!modal || !content) return;
+
+        const diagnostic = result.diagnostic;
+        const summary = result.summary;
+
+        content.innerHTML = `
+            <div class="space-y-6">
+                <!-- Header com Score de Saúde -->
+                <div class="text-center">
+                    <div class="inline-flex items-center justify-center w-20 h-20 rounded-full ${this.getHealthScoreColor(summary.health_score.score)} mb-4">
+                        <span class="text-2xl font-bold text-white">${summary.health_score.score}</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-900">${summary.health_score.status}</h3>
+                    <p class="text-gray-500">${new Date(summary.timestamp).toLocaleString('pt-BR')}</p>
+                </div>
+
+                <!-- Resumo Executivo -->
+                <div class="grid grid-cols-3 gap-4 text-center">
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <div class="text-2xl font-bold text-gray-900">${summary.health_score.passed_checks}</div>
+                        <div class="text-sm text-gray-500">Verificações OK</div>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <div class="text-2xl font-bold text-red-600">${summary.total_errors}</div>
+                        <div class="text-sm text-gray-500">Erros</div>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <div class="text-2xl font-bold text-blue-600">${summary.total_recommendations}</div>
+                        <div class="text-sm text-gray-500">Recomendações</div>
+                    </div>
+                </div>
+
+                <!-- Tabs -->
+                <div class="border-b border-gray-200">
+                    <nav class="-mb-px flex space-x-8">
+                        <button onclick="configManager.showDiagnosticTab('overview')" class="diagnostic-tab active" data-tab="overview">
+                            📊 Visão Geral
+                        </button>
+                        <button onclick="configManager.showDiagnosticTab('services')" class="diagnostic-tab" data-tab="services">
+                            🚀 Serviços
+                        </button>
+                        <button onclick="configManager.showDiagnosticTab('database')" class="diagnostic-tab" data-tab="database">
+                            🗄️ Banco de Dados
+                        </button>
+                        <button onclick="configManager.showDiagnosticTab('raw')" class="diagnostic-tab" data-tab="raw">
+                            📋 Log Completo
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- Tab Content -->
+                <div id="diagnosticTabContent">
+                    ${this.generateOverviewTab(diagnostic)}
+                </div>
+
+                <!-- Recomendações -->
+                ${diagnostic.recommendations && diagnostic.recommendations.length > 0 ? `
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h4 class="font-medium text-blue-900 mb-2">💡 Recomendações</h4>
+                        <ul class="space-y-1 text-sm text-blue-800">
+                            ${diagnostic.recommendations.map(rec => `<li>• ${rec}</li>`).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
+
+                <!-- Erros -->
+                ${diagnostic.errors && diagnostic.errors.length > 0 ? `
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <h4 class="font-medium text-red-900 mb-2">⚠️ Erros Encontrados</h4>
+                        <ul class="space-y-1 text-sm text-red-800">
+                            ${diagnostic.errors.map(error => `<li>• ${error}</li>`).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
+
+                <!-- Ações -->
+                <div class="flex justify-between pt-4 border-t">
+                    <button 
+                        onclick="configManager.copyDiagnosticToClipboard(${JSON.stringify(result).replace(/"/g, '&quot;')})"
+                        class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+                    >
+                        📋 Copiar Log
+                    </button>
+                    <button 
+                        onclick="document.getElementById('diagnosticModal').classList.add('hidden')"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    >
+                        Fechar
+                    </button>
+                </div>
+            </div>
+        `;
+
+        modal.classList.remove('hidden');
+    }
+
+    createDiagnosticModal() {
+        let modal = document.getElementById('diagnosticModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'diagnosticModal';
+            modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden';
+            modal.innerHTML = `
+                <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+                    <div id="diagnosticContent"></div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        return modal;
+    }
+
+    showDiagnosticTab(tabName) {
+        // Atualizar tabs ativas
+        document.querySelectorAll('.diagnostic-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+
+        // Atualizar conteúdo (implementação básica)
+        const content = document.getElementById('diagnosticTabContent');
+        if (content) {
+            content.innerHTML = `<div class="text-center py-8 text-gray-500">Conteúdo da aba ${tabName} em desenvolvimento...</div>`;
+        }
+    }
+
+    generateOverviewTab(diagnostic) {
+        return `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h4 class="font-medium text-gray-900 mb-3">🖥️ Informações do Sistema</h4>
+                    <div class="space-y-2 text-sm">
+                        <div><span class="font-medium">Versão:</span> ${diagnostic.system_info?.app_version || 'N/A'}</div>
+                        <div><span class="font-medium">Ambiente:</span> ${diagnostic.system_info?.environment_type || 'N/A'}</div>
+                        <div><span class="font-medium">Debug:</span> ${diagnostic.system_info?.debug_mode ? '✅ Ativo' : '❌ Inativo'}</div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h4 class="font-medium text-gray-900 mb-3">🗄️ Banco de Dados</h4>
+                    <div class="space-y-2 text-sm">
+                        <div><span class="font-medium">Conexão:</span> ${diagnostic.database?.connection || 'N/A'}</div>
+                        <div><span class="font-medium">Credenciais:</span> ${diagnostic.database?.stored_credentials?.length || 0} configuradas</div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h4 class="font-medium text-gray-900 mb-3">🚀 Status dos Serviços</h4>
+                    <div class="space-y-2 text-sm">
+                        ${Object.entries(diagnostic.services || {}).map(([service, data]) => 
+                            `<div><span class="font-medium">${service}:</span> ${data.status || 'N/A'}</div>`
+                        ).join('')}
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h4 class="font-medium text-gray-900 mb-3">🔐 Credenciais</h4>
+                    <div class="space-y-2 text-sm">
+                        ${Object.entries(diagnostic.credentials || {}).map(([key, status]) => 
+                            `<div><span class="font-medium">${key}:</span> ${status}</div>`
+                        ).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    getHealthScoreColor(score) {
+        const numScore = parseFloat(score);
+        if (numScore >= 90) return 'bg-green-500';
+        if (numScore >= 70) return 'bg-yellow-500';
+        return 'bg-red-500';
+    }
+
+    copyDiagnosticToClipboard(data) {
+        const textToCopy = JSON.stringify(data, null, 2);
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            appController.showToastNotification('Log copiado para a área de transferência!', 'success');
+        }).catch(() => {
+            appController.showToastNotification('Erro ao copiar log', 'error');
+        });
+    }
 }
 
 // Instância global

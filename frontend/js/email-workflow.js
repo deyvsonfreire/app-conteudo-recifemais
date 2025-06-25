@@ -321,20 +321,24 @@ class EmailWorkflowManager {
             this.showLoading(true);
             
             const response = await authManager.apiCall(`/workflow/emails/${emailId}/analyze`, {
-                method: 'POST'
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
             });
             
             if (response.ok) {
                 const result = await response.json();
-                this.showSuccess('Email analisado com sucesso!');
+                this.showSuccess('Email analisado com sucesso pela IA!');
                 this.refreshData();
             } else {
                 const error = await response.json();
-                this.showError(error.detail || 'Erro ao analisar email');
+                throw new Error(error.detail || 'Erro ao analisar email');
             }
+            
         } catch (error) {
             console.error('Erro ao analisar email:', error);
-            this.showError('Erro ao analisar email');
+            this.showError('Erro ao analisar email: ' + error.message);
         } finally {
             this.showLoading(false);
         }
@@ -532,15 +536,17 @@ class EmailWorkflowManager {
                     <div>
                         <h3 class="text-lg font-medium text-gray-900 mb-2">Análise da IA</h3>
                         <div class="bg-blue-50 rounded-lg p-4 space-y-3">
-                            ${analysis.title ? `<div><span class="font-medium">Título Sugerido:</span> ${analysis.title}</div>` : ''}
-                            ${analysis.summary ? `<div><span class="font-medium">Resumo:</span> ${analysis.summary}</div>` : ''}
                             ${analysis.category ? `<div><span class="font-medium">Categoria:</span> ${analysis.category}</div>` : ''}
-                            ${analysis.tags ? `<div><span class="font-medium">Tags:</span> ${analysis.tags}</div>` : ''}
-                            ${analysis.content ? `
+                            ${analysis.confidence ? `<div><span class="font-medium">Confiança:</span> ${(analysis.confidence * 100).toFixed(1)}%</div>` : ''}
+                            ${analysis.is_relevant !== undefined ? `<div><span class="font-medium">Relevante:</span> ${analysis.is_relevant ? '✅ Sim' : '❌ Não'}</div>` : ''}
+                            ${analysis.topics && analysis.topics.length > 0 ? `<div><span class="font-medium">Tópicos:</span> ${analysis.topics.join(', ')}</div>` : ''}
+                            ${analysis.generated_content ? `
                                 <div>
-                                    <span class="font-medium">Conteúdo Processado:</span>
-                                    <div class="mt-2 bg-white rounded p-3 max-h-48 overflow-y-auto">
-                                        ${analysis.content}
+                                    <span class="font-medium">Conteúdo Gerado:</span>
+                                    <div class="mt-2 bg-white rounded p-3 max-h-48 overflow-y-auto text-sm">
+                                        ${typeof analysis.generated_content === 'object' ? 
+                                            `<strong>${analysis.generated_content.titulo || 'Sem título'}</strong><br><br>${analysis.generated_content.conteudo || 'Sem conteúdo'}` : 
+                                            analysis.generated_content}
                                     </div>
                                 </div>
                             ` : ''}
@@ -552,11 +558,30 @@ class EmailWorkflowManager {
                     <div>
                         <h3 class="text-lg font-medium text-gray-900 mb-2">Análise da IA</h3>
                         <div class="bg-blue-50 rounded-lg p-4">
-                            <pre class="text-sm">${email.ai_analysis}</pre>
+                            <pre class="text-sm whitespace-pre-wrap">${JSON.stringify(email.ai_analysis, null, 2)}</pre>
                         </div>
                     </div>
                 `;
             }
+        }
+
+        // Seção de anexos (se existir)
+        let attachmentsHtml = '';
+        if (email.attachments && email.attachments.length > 0) {
+            attachmentsHtml = `
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Anexos (${email.attachments.length})</h3>
+                    <div class="bg-gray-50 rounded-lg p-4 space-y-2">
+                        ${email.attachments.map(attachment => `
+                            <div class="flex items-center space-x-2 p-2 bg-white rounded border">
+                                <i data-lucide="paperclip" class="h-4 w-4 text-gray-500"></i>
+                                <span class="text-sm font-medium">${attachment.filename || 'Anexo'}</span>
+                                <span class="text-xs text-gray-500">(${attachment.size || 'Tamanho desconhecido'})</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
         }
 
         content.innerHTML = `
@@ -566,7 +591,7 @@ class EmailWorkflowManager {
                     <div class="bg-gray-50 rounded-lg p-4 space-y-2">
                         <div class="flex justify-between">
                             <span class="font-medium">ID:</span>
-                            <span>${email.id}</span>
+                            <span class="text-sm font-mono">${email.id}</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="font-medium">Status:</span>
@@ -584,14 +609,34 @@ class EmailWorkflowManager {
                             <span class="font-medium">Tipo:</span>
                             <span>${email.is_auto_process ? 'Processamento Automático' : 'Email Antigo'}</span>
                         </div>
+                        ${email.assigned_to ? `
+                            <div class="flex justify-between">
+                                <span class="font-medium">Atribuído a:</span>
+                                <span>${email.assigned_to}</span>
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
 
                 <div>
                     <h3 class="text-lg font-medium text-gray-900 mb-2">Remetente</h3>
                     <div class="bg-gray-50 rounded-lg p-4">
-                        <p class="text-gray-900">${email.sender_name || 'Nome não disponível'}</p>
-                        <p class="text-gray-600">${email.sender_email}</p>
+                        <div class="flex items-center space-x-3">
+                            <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                <i data-lucide="user" class="h-5 w-5 text-blue-600"></i>
+                            </div>
+                            <div>
+                                <p class="text-gray-900 font-medium">${email.sender || 'Nome não disponível'}</p>
+                                <p class="text-gray-600 text-sm">${email.sender_email || email.sender || 'Email não disponível'}</p>
+                            </div>
+                        </div>
+                        <div class="mt-3 pt-3 border-t border-gray-200">
+                            <button onclick="emailWorkflow.showSenderManagement('${email.sender || email.sender_email}')" 
+                                    class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                <i data-lucide="settings" class="h-4 w-4 mr-1 inline"></i>
+                                Gerenciar Remetente
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -605,11 +650,15 @@ class EmailWorkflowManager {
                 <div>
                     <h3 class="text-lg font-medium text-gray-900 mb-2">Conteúdo Original</h3>
                     <div class="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
-                        <div class="prose max-w-none">
-                            ${email.body || 'Conteúdo não disponível'}
+                        <div class="prose max-w-none text-sm">
+                            ${email.content_text ? 
+                                email.content_text.replace(/\n/g, '<br>') : 
+                                (email.body ? email.body.replace(/\n/g, '<br>') : 'Conteúdo não disponível')}
                         </div>
                     </div>
                 </div>
+
+                ${attachmentsHtml}
 
                 ${aiAnalysisHtml}
 
@@ -747,6 +796,195 @@ class EmailWorkflowManager {
             } else {
                 button.innerHTML = '<i data-lucide="refresh-cw" class="h-4 w-4 mr-1 inline"></i> Atualizar';
             }
+        }
+    }
+
+    // ==========================================
+    // SENDER MANAGEMENT
+    // ==========================================
+    
+    showSenderManagement(senderEmail) {
+        const modal = document.getElementById('senderManagementModal') || this.createSenderManagementModal();
+        const content = document.getElementById('senderManagementContent');
+        
+        if (!modal || !content) return;
+
+        content.innerHTML = `
+            <div class="space-y-6">
+                <div class="text-center">
+                    <div class="h-16 w-16 rounded-full bg-blue-100 mx-auto flex items-center justify-center mb-4">
+                        <i data-lucide="user-plus" class="h-8 w-8 text-blue-600"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900">Gerenciar Remetente</h3>
+                    <p class="text-gray-500 mt-1">${senderEmail}</p>
+                </div>
+
+                <form id="senderForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Nome do Remetente
+                        </label>
+                        <input 
+                            type="text" 
+                            id="senderName"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Ex: João Silva"
+                        >
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Organização
+                        </label>
+                        <input 
+                            type="text" 
+                            id="senderOrganization"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Ex: Prefeitura do Recife"
+                        >
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Tipo de Remetente
+                        </label>
+                        <select 
+                            id="senderType"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="unknown">Não classificado</option>
+                            <option value="journalist">Jornalista</option>
+                            <option value="press_office">Assessoria de Imprensa</option>
+                            <option value="government">Órgão Público</option>
+                            <option value="company">Empresa</option>
+                            <option value="citizen">Cidadão</option>
+                            <option value="ngo">ONG/Entidade</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Prioridade Padrão
+                        </label>
+                        <select 
+                            id="senderPriority"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="3">Baixa</option>
+                            <option value="2">Média</option>
+                            <option value="1">Alta</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Observações
+                        </label>
+                        <textarea 
+                            id="senderNotes"
+                            rows="3"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Informações adicionais sobre este remetente..."
+                        ></textarea>
+                    </div>
+
+                    <div class="flex items-center">
+                        <input 
+                            type="checkbox" 
+                            id="senderAutoApprove"
+                            class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        >
+                        <label for="senderAutoApprove" class="ml-2 block text-sm text-gray-700">
+                            Aprovar automaticamente emails deste remetente
+                        </label>
+                    </div>
+                </form>
+
+                <div class="flex justify-end space-x-3 pt-4 border-t">
+                    <button 
+                        onclick="document.getElementById('senderManagementModal').classList.add('hidden')"
+                        class="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                    >
+                        Cancelar
+                    </button>
+                    <button 
+                        onclick="emailWorkflow.saveSenderInfo('${senderEmail}')"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    >
+                        Salvar Remetente
+                    </button>
+                </div>
+            </div>
+        `;
+
+        modal.classList.remove('hidden');
+        lucide.createIcons();
+        
+        // Carregar dados existentes do remetente se houver
+        this.loadSenderInfo(senderEmail);
+    }
+
+    createSenderManagementModal() {
+        const modal = document.createElement('div');
+        modal.id = 'senderManagementModal';
+        modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden';
+        modal.innerHTML = `
+            <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-white">
+                <div id="senderManagementContent"></div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        return modal;
+    }
+
+    async loadSenderInfo(senderEmail) {
+        try {
+            const response = await authManager.apiCall(`/senders/${encodeURIComponent(senderEmail)}`);
+            if (response.ok) {
+                const senderData = await response.json();
+                
+                // Preencher formulário com dados existentes
+                if (senderData.name) document.getElementById('senderName').value = senderData.name;
+                if (senderData.organization) document.getElementById('senderOrganization').value = senderData.organization;
+                if (senderData.type) document.getElementById('senderType').value = senderData.type;
+                if (senderData.priority) document.getElementById('senderPriority').value = senderData.priority;
+                if (senderData.notes) document.getElementById('senderNotes').value = senderData.notes;
+                if (senderData.auto_approve) document.getElementById('senderAutoApprove').checked = senderData.auto_approve;
+            }
+        } catch (error) {
+            console.log('Remetente não cadastrado, criando novo registro');
+        }
+    }
+
+    async saveSenderInfo(senderEmail) {
+        try {
+            const formData = {
+                email: senderEmail,
+                name: document.getElementById('senderName').value,
+                organization: document.getElementById('senderOrganization').value,
+                type: document.getElementById('senderType').value,
+                priority: parseInt(document.getElementById('senderPriority').value),
+                notes: document.getElementById('senderNotes').value,
+                auto_approve: document.getElementById('senderAutoApprove').checked
+            };
+
+            const response = await authManager.apiCall('/senders', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData)
+            });
+
+            if (response.ok) {
+                this.showSuccess('Informações do remetente salvas com sucesso!');
+                document.getElementById('senderManagementModal').classList.add('hidden');
+            } else {
+                throw new Error('Erro ao salvar informações do remetente');
+            }
+        } catch (error) {
+            console.error('Erro ao salvar remetente:', error);
+            this.showError('Erro ao salvar informações do remetente');
         }
     }
 }
