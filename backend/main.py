@@ -21,6 +21,7 @@ from .modules.gmail_client import gmail_client
 from .modules.realtime_notifications import realtime_manager
 from .modules.google_data_connector import google_connector
 from .modules.auth_manager import auth_manager
+from .modules.email_workflow import email_workflow
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -93,6 +94,36 @@ class UpdateUserRoleRequest(BaseModel):
 
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
+
+# ==========================================
+# EMAIL WORKFLOW MODELS
+# ==========================================
+
+class EmailWorkflowAction(BaseModel):
+    action: str
+    notes: Optional[str] = None
+    metadata: Optional[Dict] = None
+
+class ApproveContentRequest(BaseModel):
+    rating: int = 5  # 1-5
+    notes: Optional[str] = None
+    modifications: Optional[Dict] = None
+
+class PreparePublishRequest(BaseModel):
+    titulo: str
+    conteudo: str
+    categoria: Optional[str] = None
+    tags: Optional[List[str]] = None
+    meta_descricao: Optional[str] = None
+
+class RejectEmailRequest(BaseModel):
+    reason: str
+
+class UpdatePriorityRequest(BaseModel):
+    priority: int  # 1=alta, 2=média, 3=baixa
+
+class AssignEmailRequest(BaseModel):
+    assigned_to: str
 
 # No início do arquivo, após os imports, adicionar função helper
 def get_service_key():
@@ -1404,6 +1435,268 @@ async def create_initial_admin(user_data: CreateUserRequest):
     except Exception as e:
         logger.error(f"Erro ao criar admin inicial: {e}")
         raise HTTPException(status_code=500, detail="Erro ao criar admin inicial")
+
+# ==========================================
+# EMAIL WORKFLOW ENDPOINTS
+# ==========================================
+
+@app.get("/workflow/dashboard")
+async def get_workflow_dashboard(
+    days_back: int = 30,
+    current_user: Dict = Depends(auth_manager.require_permission("content"))
+):
+    """Obter estatísticas do dashboard de workflow"""
+    try:
+        user_id = current_user.get("id") if current_user.get("role") != "admin" else None
+        stats = email_workflow.get_dashboard_stats(user_id=user_id, days_back=days_back)
+        
+        return {
+            "success": True,
+            "stats": stats
+        }
+    except Exception as e:
+        logger.error(f"Erro ao obter dashboard: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/workflow/emails")
+async def list_workflow_emails(
+    stage: Optional[str] = None,
+    priority: Optional[int] = None,
+    assigned_to: Optional[str] = None,
+    is_auto_process: Optional[bool] = None,
+    limit: int = 50,
+    offset: int = 0,
+    current_user: Dict = Depends(auth_manager.require_permission("content"))
+):
+    """Listar emails do workflow com filtros"""
+    try:
+        # Se não for admin, mostrar apenas emails atribuídos ao usuário
+        if current_user.get("role") != "admin" and not assigned_to:
+            assigned_to = current_user.get("id")
+        
+        result = email_workflow.list_emails(
+            stage=stage,
+            priority=priority,
+            assigned_to=assigned_to,
+            is_auto_process=is_auto_process,
+            limit=limit,
+            offset=offset
+        )
+        
+        return {
+            "success": True,
+            **result
+        }
+    except Exception as e:
+        logger.error(f"Erro ao listar emails: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/workflow/emails/{email_id}")
+async def get_workflow_email_details(
+    email_id: str,
+    current_user: Dict = Depends(auth_manager.require_permission("content"))
+):
+    """Obter detalhes completos de um email do workflow"""
+    try:
+        email = email_workflow.get_email_details(email_id)
+        
+        if not email:
+            raise HTTPException(status_code=404, detail="Email não encontrado")
+        
+        # Verificar permissões
+        if current_user.get("role") != "admin" and email.get("assigned_to") != current_user.get("id"):
+            raise HTTPException(status_code=403, detail="Acesso negado a este email")
+        
+        return {
+            "success": True,
+            "email": email
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao obter detalhes do email: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/workflow/emails/{email_id}/analyze")
+async def analyze_workflow_email(
+    email_id: str,
+    current_user: Dict = Depends(auth_manager.require_permission("content"))
+):
+    """Analisar email com IA (primeira etapa do workflow)"""
+    try:
+        result = email_workflow.analyze_email(email_id, current_user["id"])
+        
+        if result["success"]:
+            return result
+        else:
+            raise HTTPException(status_code=400, detail=result["error"])
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao analisar email: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/workflow/emails/{email_id}/approve")
+async def approve_workflow_content(
+    email_id: str,
+    approval_data: ApproveContentRequest,
+    current_user: Dict = Depends(auth_manager.require_permission("content"))
+):
+    """Aprovar conteúdo gerado (segunda etapa)"""
+    try:
+        user_feedback = {
+            "rating": approval_data.rating,
+            "notes": approval_data.notes,
+            "modifications": approval_data.modifications,
+            "approved_at": datetime.now().isoformat(),
+            "approved_by": current_user["email"]
+        }
+        
+        result = email_workflow.approve_content(email_id, current_user["id"], user_feedback)
+        
+        if result["success"]:
+            return result
+        else:
+            raise HTTPException(status_code=400, detail=result["error"])
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao aprovar conteúdo: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/workflow/emails/{email_id}/prepare")
+async def prepare_workflow_publish(
+    email_id: str,
+    publish_data: PreparePublishRequest,
+    current_user: Dict = Depends(auth_manager.require_permission("content"))
+):
+    """Preparar email para publicação (terceira etapa)"""
+    try:
+        publish_dict = {
+            "titulo": publish_data.titulo,
+            "conteudo": publish_data.conteudo,
+            "categoria": publish_data.categoria,
+            "tags": publish_data.tags,
+            "meta_descricao": publish_data.meta_descricao
+        }
+        
+        result = email_workflow.prepare_for_publish(email_id, current_user["id"], publish_dict)
+        
+        if result["success"]:
+            return result
+        else:
+            raise HTTPException(status_code=400, detail=result["error"])
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao preparar publicação: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/workflow/emails/{email_id}/publish")
+async def publish_workflow_email(
+    email_id: str,
+    current_user: Dict = Depends(auth_manager.require_permission("wordpress"))
+):
+    """Publicar email no WordPress (etapa final)"""
+    try:
+        result = email_workflow.publish_to_wordpress(email_id, current_user["id"])
+        
+        if result["success"]:
+            return result
+        else:
+            raise HTTPException(status_code=400, detail=result["error"])
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao publicar email: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/workflow/emails/{email_id}/reject")
+async def reject_workflow_email(
+    email_id: str,
+    reject_data: RejectEmailRequest,
+    current_user: Dict = Depends(auth_manager.require_permission("content"))
+):
+    """Rejeitar email em qualquer etapa"""
+    try:
+        result = email_workflow.reject_email(email_id, current_user["id"], reject_data.reason)
+        
+        if result["success"]:
+            return result
+        else:
+            raise HTTPException(status_code=400, detail=result["error"])
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao rejeitar email: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/workflow/emails/{email_id}/archive")
+async def archive_workflow_email(
+    email_id: str,
+    current_user: Dict = Depends(auth_manager.require_admin())
+):
+    """Arquivar email (para emails antigos)"""
+    try:
+        result = email_workflow.archive_email(email_id, current_user["id"])
+        
+        if result["success"]:
+            return result
+        else:
+            raise HTTPException(status_code=400, detail=result["error"])
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao arquivar email: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/workflow/emails/{email_id}/priority")
+async def update_workflow_email_priority(
+    email_id: str,
+    priority_data: UpdatePriorityRequest,
+    current_user: Dict = Depends(auth_manager.require_permission("content"))
+):
+    """Atualizar prioridade do email"""
+    try:
+        result = email_workflow.update_priority(email_id, current_user["id"], priority_data.priority)
+        
+        if result["success"]:
+            return result
+        else:
+            raise HTTPException(status_code=400, detail=result["error"])
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao atualizar prioridade: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/workflow/emails/{email_id}/assign")
+async def assign_workflow_email(
+    email_id: str,
+    assign_data: AssignEmailRequest,
+    current_user: Dict = Depends(auth_manager.require_admin())
+):
+    """Atribuir email a um usuário"""
+    try:
+        result = email_workflow.assign_email(email_id, assign_data.assigned_to, current_user["id"])
+        
+        if result["success"]:
+            return result
+        else:
+            raise HTTPException(status_code=400, detail=result["error"])
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao atribuir email: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

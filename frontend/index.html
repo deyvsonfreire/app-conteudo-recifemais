@@ -131,6 +131,10 @@
                                 <i data-lucide="bar-chart-3" class="h-4 w-4 mr-1"></i>
                                 Analytics
                             </a>
+                            <a href="#" class="nav-link" data-section="emails">
+                                <i data-lucide="mail" class="h-4 w-4 mr-1"></i>
+                                Emails
+                            </a>
                             <a href="#" class="nav-link" data-section="content">
                                 <i data-lucide="file-text" class="h-4 w-4 mr-1"></i>
                                 Conteúdo
@@ -288,6 +292,148 @@
                 </div>
             </div>
 
+            <!-- Emails Section -->
+            <div id="emailsSection" class="dashboard-section hidden">
+                <div class="px-4 py-6 sm:px-0">
+                    <h1 class="text-2xl font-bold text-gray-900 mb-6">Gestão de Emails</h1>
+                    
+                    <!-- Email Stats -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-white overflow-hidden shadow rounded-lg">
+                            <div class="p-5">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <i data-lucide="clock" class="h-6 w-6 text-yellow-600"></i>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt class="text-sm font-medium text-gray-500 truncate">
+                                                Aguardando Revisão
+                                            </dt>
+                                            <dd id="pendingReview" class="text-lg font-medium text-gray-900">
+                                                --
+                                            </dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white overflow-hidden shadow rounded-lg">
+                            <div class="p-5">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <i data-lucide="check-circle" class="h-6 w-6 text-green-600"></i>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt class="text-sm font-medium text-gray-500 truncate">
+                                                Prontos para Publicar
+                                            </dt>
+                                            <dd id="readyToPublish" class="text-lg font-medium text-gray-900">
+                                                --
+                                            </dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white overflow-hidden shadow rounded-lg">
+                            <div class="p-5">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <i data-lucide="send" class="h-6 w-6 text-blue-600"></i>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt class="text-sm font-medium text-gray-500 truncate">
+                                                Publicados Hoje
+                                            </dt>
+                                            <dd id="publishedToday" class="text-lg font-medium text-gray-900">
+                                                --
+                                            </dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white overflow-hidden shadow rounded-lg">
+                            <div class="p-5">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <i data-lucide="inbox" class="h-6 w-6 text-purple-600"></i>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt class="text-sm font-medium text-gray-500 truncate">
+                                                Total de Emails
+                                            </dt>
+                                            <dd id="totalEmails" class="text-lg font-medium text-gray-900">
+                                                --
+                                            </dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Email Filters -->
+                    <div class="bg-white shadow rounded-lg p-6 mb-6">
+                        <div class="flex flex-wrap items-center gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                <select id="emailStatusFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Todos</option>
+                                    <option value="received">Recebidos</option>
+                                    <option value="analyzed">Analisados</option>
+                                    <option value="approved_content">Conteúdo Aprovado</option>
+                                    <option value="ready_publish">Pronto para Publicar</option>
+                                    <option value="published">Publicados</option>
+                                    <option value="rejected">Rejeitados</option>
+                                    <option value="archived">Arquivados</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Prioridade</label>
+                                <select id="emailPriorityFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Todas</option>
+                                    <option value="1">Alta</option>
+                                    <option value="2">Média</option>
+                                    <option value="3">Baixa</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+                                <select id="emailTypeFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Todos</option>
+                                    <option value="true">Processamento Automático</option>
+                                    <option value="false">Emails Antigos</option>
+                                </select>
+                            </div>
+                            <div class="ml-auto">
+                                <button id="refreshEmailsButton" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                                    <i data-lucide="refresh-cw" class="h-4 w-4 mr-1 inline"></i>
+                                    Atualizar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Emails Table -->
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h2 class="text-lg font-medium text-gray-900">Lista de Emails</h2>
+                        </div>
+                        <div id="emailsTable" class="overflow-x-auto">
+                            <!-- Emails table will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Content Section -->
             <div id="contentSection" class="dashboard-section hidden">
                 <div class="px-4 py-6 sm:px-0">
@@ -356,6 +502,7 @@
 
     <!-- JavaScript -->
     <script src="static/js/auth.js"></script>
+    <script src="static/js/email-workflow.js"></script>
     <script src="static/js/dashboard.js"></script>
     <script src="static/js/app.js"></script>
 </body>

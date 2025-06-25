@@ -130,6 +130,9 @@ class DashboardManager {
             case 'analytics':
                 await this.loadAnalyticsData();
                 break;
+            case 'emails':
+                await this.loadEmailsData();
+                break;
             case 'content':
                 await this.loadContentData();
                 break;
@@ -234,6 +237,14 @@ class DashboardManager {
             console.error('Erro ao carregar analytics:', error);
             container.innerHTML = '<p class="text-red-500">Erro ao carregar dados de analytics.</p>';
         }
+    }
+    
+    async loadEmailsData() {
+        // Inicializar o workflow de emails
+        if (typeof emailWorkflow !== 'undefined') {
+            emailWorkflow.init();
+        }
+        console.log('📧 Carregando dados de emails...');
     }
     
     async loadContentData() {
