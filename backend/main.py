@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 import logging
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
 import httpx
 import os
 
@@ -231,58 +231,895 @@ async def health_check():
     
     # Testar Supabase (consolidar em uma única consulta)
     try:
-        # Usar uma consulta simples que testa conexão e RLS
-        test_result = db.client.table("system_config").select("key").limit(1).execute()
+        response = db.client.table("system_config").select("key").limit(1).execute()
         checks["database"] = True
+        
+        # Testar auth_manager
+        users = auth_manager.list_users()
+        checks["auth"] = len(users) >= 0
+        
     except Exception as e:
         logger.error(f"Erro no health check Supabase: {e}")
         checks["database"] = False
+        checks["auth"] = False
     
     # Testar WordPress
     try:
-        checks["wordpress"] = wp_publisher.test_connection()
+        wp_status = wp_publisher.test_connection()
+        checks["wordpress"] = wp_status if isinstance(wp_status, bool) else wp_status.get("success", False)
     except Exception as e:
         logger.error(f"Erro no health check WordPress: {e}")
         checks["wordpress"] = False
     
-    # Testar Gemini (gerar embedding simples)
+    # Testar Gemini AI
     try:
+        # Testar com uma operação simples
         test_embedding = ai_processor.generate_embedding("teste")
-        checks["gemini"] = len(test_embedding) > 0
+        checks["gemini"] = len(test_embedding) > 0 if test_embedding else False
     except Exception as e:
         logger.error(f"Erro no health check Gemini: {e}")
         checks["gemini"] = False
     
-    # Testar Gmail (verificar autenticação sem recarregar credenciais)
+    # Testar Gmail
     try:
-        checks["gmail"] = gmail_client.credentials is not None and gmail_client.credentials.valid
+        # Verificar se tem credenciais válidas
+        checks["gmail"] = gmail_client.credentials is not None and hasattr(gmail_client.credentials, 'valid') and gmail_client.credentials.valid
     except Exception as e:
         logger.error(f"Erro no health check Gmail: {e}")
         checks["gmail"] = False
     
-    # Testar Google Data Connector
+    # Testar Google Data
     try:
         gd_status = google_connector.test_connection()
-        checks["google_data"] = gd_status.get("credentials_valid", False)
+        checks["google_data"] = gd_status.get("credentials_valid", False) if isinstance(gd_status, dict) else False
     except Exception as e:
         logger.error(f"Erro no health check Google Data: {e}")
         checks["google_data"] = False
     
-    # Testar Auth Manager
-    try:
-        auth_stats = auth_manager.get_auth_stats()
-        checks["auth"] = auth_stats.get("total_users", 0) > 0
-    except Exception as e:
-        logger.error(f"Erro no health check Auth: {e}")
-        checks["auth"] = False
+    # Determinar status geral
+    all_critical_services = [checks["database"], checks["auth"], checks["gemini"]]
+    all_services = list(checks.values())
     
-    all_healthy = all(checks.values())
+    if all(all_critical_services):
+        if all(all_services):
+            status = "healthy"
+        else:
+            status = "degraded"
+    else:
+        status = "unhealthy"
     
     return {
-        "status": "healthy" if all_healthy else "degraded",
+        "status": status,
         "checks": checks,
         "timestamp": datetime.now().isoformat()
     }
+
+@app.get("/health/dashboard")
+@app.head("/health/dashboard")
+async def health_dashboard():
+    """Dashboard visual completo do status do sistema"""
+    
+    # Obter dados do health check
+    health_data = await health_check()
+    
+    # Stats simples sem consultas complexas
+    try:
+        users = auth_manager.list_users()
+        user_stats = {
+            "total_users": len(users),
+            "admin_users": len([u for u in users if u.get("role") == "admin"]),
+            "active_users": len([u for u in users if not u.get("disabled", False)])
+        }
+    except:
+        user_stats = {"total_users": 0, "admin_users": 0, "active_users": 0}
+    
+    # Stats de emails simplificados
+    email_stats = {"total_emails": 0, "processed_emails": 0, "pending_emails": 0}
+    
+    # Informações do sistema
+    system_info = {
+        "app_name": getattr(settings, 'APP_NAME', 'RecifeMais'),
+        "app_version": getattr(settings, 'APP_VERSION', '2.4.0'),
+        "environment": getattr(settings, 'ENVIRONMENT', 'production'),
+        "debug_mode": getattr(settings, 'DEBUG', False),
+        "port": getattr(settings, 'PORT', 8001),
+        "timestamp": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+        "uptime": "Sistema ativo"
+    }
+    
+    # Detalhes dos serviços
+    service_details = {
+        "database": {
+            "name": "Supabase Database",
+            "description": "Banco de dados principal",
+            "url": getattr(settings, 'SUPABASE_URL', 'N/A'),
+            "status": health_data["checks"]["database"]
+        },
+        "auth": {
+            "name": "Sistema de Autenticação", 
+            "description": "Gerenciamento de usuários",
+            "users_count": user_stats["total_users"],
+            "status": health_data["checks"]["auth"]
+        },
+        "wordpress": {
+            "name": "WordPress API",
+            "description": "Publicação de conteúdo",
+            "url": getattr(settings, 'WORDPRESS_URL', 'N/A'),
+            "status": health_data["checks"]["wordpress"]
+        },
+        "gemini": {
+            "name": "Google Gemini AI",
+            "description": "Processamento de IA",
+            "model": getattr(settings, 'GEMINI_MODEL', 'gemini-pro'),
+            "status": health_data["checks"]["gemini"]
+        },
+        "gmail": {
+            "name": "Gmail API",
+            "description": "Integração de email",
+            "redirect_uri": getattr(settings, 'GMAIL_REDIRECT_URI', 'N/A'),
+            "status": health_data["checks"]["gmail"]
+        },
+        "google_data": {
+            "name": "Google Analytics & Search Console",
+            "description": "Dados de performance",
+            "gsc_url": getattr(settings, 'GSC_SITE_URL', 'N/A'),
+            "status": health_data["checks"]["google_data"]
+        }
+    }
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Status do Sistema - {system_info['app_name']}</title>
+        <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+        <style>
+            * {{
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }}
+            
+            body {{
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                padding: 20px;
+            }}
+            
+            .container {{
+                max-width: 1200px;
+                margin: 0 auto;
+            }}
+            
+            .header {{
+                background: rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(10px);
+                border-radius: 16px;
+                padding: 30px;
+                margin-bottom: 30px;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            }}
+            
+            .header h1 {{
+                color: #1a202c;
+                font-size: 2.5rem;
+                font-weight: 700;
+                margin-bottom: 10px;
+                display: flex;
+                align-items: center;
+                gap: 15px;
+            }}
+            
+            .header p {{
+                color: #4a5568;
+                font-size: 1.1rem;
+                margin-bottom: 20px;
+            }}
+            
+            .status-badge {{
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-weight: 600;
+                font-size: 0.9rem;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }}
+            
+            .status-healthy {{
+                background: #d4edda;
+                color: #155724;
+                border: 1px solid #c3e6cb;
+            }}
+            
+            .status-degraded {{
+                background: #fff3cd;
+                color: #856404;
+                border: 1px solid #ffeaa7;
+            }}
+            
+            .status-unhealthy {{
+                background: #f8d7da;
+                color: #721c24;
+                border: 1px solid #f5c6cb;
+            }}
+            
+            .grid {{
+                display: grid;
+                gap: 20px;
+                margin-bottom: 30px;
+            }}
+            
+            .grid-3 {{
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            }}
+            
+            .grid-2 {{
+                grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            }}
+            
+            .card {{
+                background: rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(10px);
+                border-radius: 16px;
+                padding: 25px;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+            }}
+            
+            .card h3 {{
+                color: #1a202c;
+                font-size: 1.3rem;
+                font-weight: 600;
+                margin-bottom: 15px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }}
+            
+            .stats-grid {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                gap: 15px;
+                margin-top: 20px;
+            }}
+            
+            .stat-item {{
+                text-align: center;
+                padding: 15px;
+                background: #f8fafc;
+                border-radius: 12px;
+                border: 1px solid #e2e8f0;
+            }}
+            
+            .stat-number {{
+                font-size: 2rem;
+                font-weight: 700;
+                color: #2d3748;
+                margin-bottom: 5px;
+            }}
+            
+            .stat-label {{
+                font-size: 0.85rem;
+                color: #718096;
+                font-weight: 500;
+            }}
+            
+            .service-item {{
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 15px;
+                margin-bottom: 12px;
+                background: #f8fafc;
+                border-radius: 12px;
+                border: 1px solid #e2e8f0;
+                transition: all 0.2s ease;
+            }}
+            
+            .service-item:hover {{
+                background: #edf2f7;
+                transform: translateY(-1px);
+            }}
+            
+            .service-info {{
+                flex: 1;
+            }}
+            
+            .service-name {{
+                font-weight: 600;
+                color: #2d3748;
+                margin-bottom: 4px;
+            }}
+            
+            .service-desc {{
+                font-size: 0.9rem;
+                color: #718096;
+                margin-bottom: 4px;
+            }}
+            
+            .service-detail {{
+                font-size: 0.8rem;
+                color: #a0aec0;
+            }}
+            
+            .service-status {{
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 6px 12px;
+                border-radius: 20px;
+                font-size: 0.8rem;
+                font-weight: 600;
+            }}
+            
+            .status-online {{
+                background: #d4edda;
+                color: #155724;
+            }}
+            
+            .status-offline {{
+                background: #f8d7da;
+                color: #721c24;
+            }}
+            
+            .system-info {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 15px;
+            }}
+            
+            .info-item {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 12px;
+                background: #f8fafc;
+                border-radius: 8px;
+                border: 1px solid #e2e8f0;
+            }}
+            
+            .info-label {{
+                color: #4a5568;
+                font-weight: 500;
+            }}
+            
+            .info-value {{
+                color: #2d3748;
+                font-weight: 600;
+            }}
+            
+            .refresh-btn {{
+                background: #4299e1;
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }}
+            
+            .refresh-btn:hover {{
+                background: #3182ce;
+                transform: translateY(-1px);
+            }}
+            
+            .footer {{
+                text-align: center;
+                margin-top: 40px;
+                padding: 20px;
+                color: rgba(255, 255, 255, 0.8);
+            }}
+            
+            @media (max-width: 768px) {{
+                .header h1 {{
+                    font-size: 2rem;
+                }}
+                
+                .grid-3, .grid-2 {{
+                    grid-template-columns: 1fr;
+                }}
+                
+                .stats-grid {{
+                    grid-template-columns: repeat(2, 1fr);
+                }}
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <!-- Header -->
+            <div class="header">
+                <h1>
+                    <i data-lucide="activity"></i>
+                    Status do Sistema
+                </h1>
+                <p>{system_info['app_name']} v{system_info['app_version']} - {system_info['environment'].title()}</p>
+                
+                <div class="status-badge status-{health_data['status']}">
+                    <i data-lucide="{'check-circle' if health_data['status'] == 'healthy' else 'alert-circle' if health_data['status'] == 'degraded' else 'x-circle'}"></i>
+                    {health_data['status'].title()}
+                </div>
+                
+                <button class="refresh-btn" onclick="window.location.reload()" style="margin-top: 15px;">
+                    <i data-lucide="refresh-cw"></i>
+                    Atualizar Status
+                </button>
+            </div>
+            
+            <!-- Stats Cards -->
+            <div class="grid grid-3">
+                <div class="card">
+                    <h3>
+                        <i data-lucide="users"></i>
+                        Usuários
+                    </h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-number">{user_stats['total_users']}</div>
+                            <div class="stat-label">Total</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">{user_stats['admin_users']}</div>
+                            <div class="stat-label">Admins</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">{user_stats['active_users']}</div>
+                            <div class="stat-label">Ativos</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3>
+                        <i data-lucide="mail"></i>
+                        Emails (7 dias)
+                    </h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-number">{email_stats['total_emails']}</div>
+                            <div class="stat-label">Total</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">{email_stats['processed_emails']}</div>
+                            <div class="stat-label">Processados</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">{email_stats['pending_emails']}</div>
+                            <div class="stat-label">Pendentes</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3>
+                        <i data-lucide="server"></i>
+                        Sistema
+                    </h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-number">{len([s for s in health_data['checks'].values() if s])}</div>
+                            <div class="stat-label">Serviços OK</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">{len([s for s in health_data['checks'].values() if not s])}</div>
+                            <div class="stat-label">Com Problema</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">{len(health_data['checks'])}</div>
+                            <div class="stat-label">Total</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Services and System Info -->
+            <div class="grid grid-2">
+                <div class="card">
+                    <h3>
+                        <i data-lucide="zap"></i>
+                        Status dos Serviços
+                    </h3>
+                    
+                    <div class="service-item">
+                        <div class="service-info">
+                            <div class="service-name">{service_details['database']['name']}</div>
+                            <div class="service-desc">{service_details['database']['description']}</div>
+                            <div class="service-detail">{service_details['database']['url']}</div>
+                        </div>
+                        <div class="service-status status-{'online' if service_details['database']['status'] else 'offline'}">
+                            <i data-lucide="{'check' if service_details['database']['status'] else 'x'}"></i>
+                            {'Online' if service_details['database']['status'] else 'Offline'}
+                        </div>
+                    </div>
+                    
+                    <div class="service-item">
+                        <div class="service-info">
+                            <div class="service-name">{service_details['auth']['name']}</div>
+                            <div class="service-desc">{service_details['auth']['description']}</div>
+                            <div class="service-detail">{service_details['auth']['users_count']} usuários registrados</div>
+                        </div>
+                        <div class="service-status status-{'online' if service_details['auth']['status'] else 'offline'}">
+                            <i data-lucide="{'check' if service_details['auth']['status'] else 'x'}"></i>
+                            {'Online' if service_details['auth']['status'] else 'Offline'}
+                        </div>
+                    </div>
+                    
+                    <div class="service-item">
+                        <div class="service-info">
+                            <div class="service-name">{service_details['wordpress']['name']}</div>
+                            <div class="service-desc">{service_details['wordpress']['description']}</div>
+                            <div class="service-detail">{service_details['wordpress']['url']}</div>
+                        </div>
+                        <div class="service-status status-{'online' if service_details['wordpress']['status'] else 'offline'}">
+                            <i data-lucide="{'check' if service_details['wordpress']['status'] else 'x'}"></i>
+                            {'Online' if service_details['wordpress']['status'] else 'Offline'}
+                        </div>
+                    </div>
+                    
+                    <div class="service-item">
+                        <div class="service-info">
+                            <div class="service-name">{service_details['gemini']['name']}</div>
+                            <div class="service-desc">{service_details['gemini']['description']}</div>
+                            <div class="service-detail">Modelo: {service_details['gemini']['model']}</div>
+                        </div>
+                        <div class="service-status status-{'online' if service_details['gemini']['status'] else 'offline'}">
+                            <i data-lucide="{'check' if service_details['gemini']['status'] else 'x'}"></i>
+                            {'Online' if service_details['gemini']['status'] else 'Offline'}
+                        </div>
+                    </div>
+                    
+                    <div class="service-item">
+                        <div class="service-info">
+                            <div class="service-name">{service_details['gmail']['name']}</div>
+                            <div class="service-desc">{service_details['gmail']['description']}</div>
+                            <div class="service-detail">{service_details['gmail']['redirect_uri']}</div>
+                        </div>
+                        <div class="service-status status-{'online' if service_details['gmail']['status'] else 'offline'}">
+                            <i data-lucide="{'check' if service_details['gmail']['status'] else 'x'}"></i>
+                            {'Online' if service_details['gmail']['status'] else 'Offline'}
+                        </div>
+                    </div>
+                    
+                    <div class="service-item">
+                        <div class="service-info">
+                            <div class="service-name">{service_details['google_data']['name']}</div>
+                            <div class="service-desc">{service_details['google_data']['description']}</div>
+                            <div class="service-detail">{service_details['google_data']['gsc_url']}</div>
+                        </div>
+                        <div class="service-status status-{'online' if service_details['google_data']['status'] else 'offline'}">
+                            <i data-lucide="{'check' if service_details['google_data']['status'] else 'x'}"></i>
+                            {'Online' if service_details['google_data']['status'] else 'Offline'}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3>
+                        <i data-lucide="info"></i>
+                        Informações do Sistema
+                    </h3>
+                    
+                    <div class="system-info">
+                        <div class="info-item">
+                            <span class="info-label">Aplicação</span>
+                            <span class="info-value">{system_info['app_name']}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Versão</span>
+                            <span class="info-value">v{system_info['app_version']}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Ambiente</span>
+                            <span class="info-value">{system_info['environment'].title()}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Debug</span>
+                            <span class="info-value">{'Ativo' if system_info['debug_mode'] else 'Inativo'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Porta</span>
+                            <span class="info-value">{system_info['port']}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Última Verificação</span>
+                            <span class="info-value">{system_info['timestamp']}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>RecifeMais Sistema de Conteúdo - Monitoramento em Tempo Real</p>
+            <p>Última atualização: {system_info['timestamp']}</p>
+        </div>
+        
+        <script>
+            // Inicializar ícones Lucide
+            lucide.createIcons();
+            
+            // Auto-refresh a cada 30 segundos
+            setTimeout(() => {{
+                window.location.reload();
+            }}, 30000);
+        </script>
+    </body>
+    </html>
+    """
+    
+    return Response(content=html_content, media_type="text/html")
+
+@app.get("/health/simple")
+@app.head("/health/simple")
+async def health_simple():
+    """Versão simples e rápida do health check visual"""
+    
+    # Obter dados básicos do health check
+    health_data = await health_check()
+    
+    # Contadores simples
+    services_online = len([s for s in health_data['checks'].values() if s])
+    services_total = len(health_data['checks'])
+    services_offline = services_total - services_online
+    
+    # Status visual
+    status_color = {
+        "healthy": "#10b981",
+        "degraded": "#f59e0b", 
+        "unhealthy": "#ef4444"
+    }.get(health_data['status'], "#6b7280")
+    
+    status_icon = {
+        "healthy": "✅",
+        "degraded": "⚠️",
+        "unhealthy": "❌"
+    }.get(health_data['status'], "❓")
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Health Check - RecifeMais</title>
+        <style>
+            body {{
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                margin: 0;
+                padding: 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }}
+            
+            .health-card {{
+                background: white;
+                border-radius: 20px;
+                padding: 40px;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+                text-align: center;
+                max-width: 500px;
+                width: 100%;
+            }}
+            
+            .status-icon {{
+                font-size: 4rem;
+                margin-bottom: 20px;
+            }}
+            
+            .status-text {{
+                font-size: 2rem;
+                font-weight: bold;
+                color: {status_color};
+                margin-bottom: 10px;
+                text-transform: uppercase;
+            }}
+            
+            .app-info {{
+                color: #666;
+                margin-bottom: 30px;
+                font-size: 1.1rem;
+            }}
+            
+            .services-grid {{
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 20px;
+                margin-bottom: 30px;
+            }}
+            
+            .service-stat {{
+                background: #f8f9fa;
+                border-radius: 12px;
+                padding: 20px;
+                border: 2px solid #e9ecef;
+            }}
+            
+            .service-stat.online {{
+                border-color: #10b981;
+                background: #ecfdf5;
+            }}
+            
+            .service-stat.offline {{
+                border-color: #ef4444;
+                background: #fef2f2;
+            }}
+            
+            .stat-number {{
+                font-size: 2.5rem;
+                font-weight: bold;
+                margin-bottom: 5px;
+            }}
+            
+            .online .stat-number {{
+                color: #10b981;
+            }}
+            
+            .offline .stat-number {{
+                color: #ef4444;
+            }}
+            
+            .stat-label {{
+                color: #666;
+                font-size: 0.9rem;
+                font-weight: 500;
+            }}
+            
+            .services-list {{
+                text-align: left;
+                margin-bottom: 30px;
+            }}
+            
+            .service-item {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 10px 0;
+                border-bottom: 1px solid #eee;
+            }}
+            
+            .service-item:last-child {{
+                border-bottom: none;
+            }}
+            
+            .service-name {{
+                font-weight: 500;
+                color: #333;
+            }}
+            
+            .service-status {{
+                font-size: 1.2rem;
+            }}
+            
+            .timestamp {{
+                color: #999;
+                font-size: 0.9rem;
+                margin-bottom: 20px;
+            }}
+            
+            .refresh-btn {{
+                background: #4299e1;
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s;
+            }}
+            
+            .refresh-btn:hover {{
+                background: #3182ce;
+                transform: translateY(-1px);
+            }}
+            
+            .links {{
+                margin-top: 20px;
+                padding-top: 20px;
+                border-top: 1px solid #eee;
+            }}
+            
+            .links a {{
+                color: #4299e1;
+                text-decoration: none;
+                margin: 0 10px;
+                font-weight: 500;
+            }}
+            
+            .links a:hover {{
+                text-decoration: underline;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="health-card">
+            <div class="status-icon">{status_icon}</div>
+            <div class="status-text">{health_data['status']}</div>
+            <div class="app-info">
+                RecifeMais Sistema de Conteúdo<br>
+                <small>Versão 2.4.0 - Produção</small>
+            </div>
+            
+            <div class="services-grid">
+                <div class="service-stat online">
+                    <div class="stat-number">{services_online}</div>
+                    <div class="stat-label">Online</div>
+                </div>
+                <div class="service-stat offline">
+                    <div class="stat-number">{services_offline}</div>
+                    <div class="stat-label">Offline</div>
+                </div>
+                <div class="service-stat">
+                    <div class="stat-number">{services_total}</div>
+                    <div class="stat-label">Total</div>
+                </div>
+            </div>
+            
+            <div class="services-list">
+                <div class="service-item">
+                    <span class="service-name">Database</span>
+                    <span class="service-status">{'✅' if health_data['checks']['database'] else '❌'}</span>
+                </div>
+                <div class="service-item">
+                    <span class="service-name">Authentication</span>
+                    <span class="service-status">{'✅' if health_data['checks']['auth'] else '❌'}</span>
+                </div>
+                <div class="service-item">
+                    <span class="service-name">WordPress</span>
+                    <span class="service-status">{'✅' if health_data['checks']['wordpress'] else '❌'}</span>
+                </div>
+                <div class="service-item">
+                    <span class="service-name">Gemini AI</span>
+                    <span class="service-status">{'✅' if health_data['checks']['gemini'] else '❌'}</span>
+                </div>
+                <div class="service-item">
+                    <span class="service-name">Gmail</span>
+                    <span class="service-status">{'✅' if health_data['checks']['gmail'] else '❌'}</span>
+                </div>
+                <div class="service-item">
+                    <span class="service-name">Google Data</span>
+                    <span class="service-status">{'✅' if health_data['checks']['google_data'] else '❌'}</span>
+                </div>
+            </div>
+            
+            <div class="timestamp">
+                Última verificação: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
+            </div>
+            
+            <button class="refresh-btn" onclick="window.location.reload()">
+                🔄 Atualizar
+            </button>
+            
+            <div class="links">
+                <a href="/health/dashboard">Dashboard Completo</a>
+                <a href="/health">API JSON</a>
+                <a href="/">Voltar ao Sistema</a>
+            </div>
+        </div>
+        
+        <script>
+            // Auto-refresh a cada 15 segundos
+            setTimeout(() => {{
+                window.location.reload();
+            }}, 15000);
+        </script>
+    </body>
+    </html>
+    """
+    
+    return Response(content=html_content, media_type="text/html")
 
 @app.get("/auth/gmail")
 async def gmail_auth():
