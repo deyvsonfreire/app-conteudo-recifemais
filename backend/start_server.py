@@ -16,9 +16,9 @@ if __name__ == "__main__":
     
     # Configurar e iniciar o servidor
     uvicorn.run(
-        "main:app",
+        "backend.main:app",
         host="127.0.0.1",
-        port=8000,
+        port=8001,
         reload=True,
         log_level="info",
         access_log=True

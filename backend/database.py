@@ -2,7 +2,7 @@
 Conexão e utilitários do Supabase
 """
 from supabase import create_client, Client
-from config import settings
+from .config import settings
 from typing import Optional, Dict, Any, List
 import logging
 
@@ -99,6 +99,20 @@ class SupabaseManager:
         except Exception as e:
             logger.error(f"Erro ao definir configuração: {e}")
             return False
+
+    def search_similar_content(self, embedding: List[float], limit: int = 5) -> List[Dict]:
+        """Busca conteúdo similar usando embeddings (RAG)"""
+        try:
+            # Por enquanto, retorna lista vazia já que não temos embeddings no banco ainda
+            # Em versões futuras, implementar busca por similaridade usando pgvector
+            result = self.client.table("knowledge_base")\
+                .select("*")\
+                .limit(limit)\
+                .execute()
+            return result.data or []
+        except Exception as e:
+            logger.error(f"Erro ao buscar conteúdo similar: {e}")
+            return []
 
 # Instância global
 db = SupabaseManager() 

@@ -1,1 +1,1 @@
-# Backend RecifeMais Conteúdo 
+# Backend package for RecifeMais Content System 

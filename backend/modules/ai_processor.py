@@ -2,8 +2,8 @@
 Processador de IA usando Google Gemini
 """
 import google.generativeai as genai
-from config import settings
-from database import db
+from ..config import settings
+from ..database import db
 from typing import Dict, Any, List, Optional
 import logging
 import hashlib
