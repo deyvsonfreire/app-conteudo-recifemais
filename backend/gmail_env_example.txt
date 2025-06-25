@@ -1,0 +1,10 @@
+# Gmail OAuth Credentials
+GMAIL_CLIENT_ID=your_client_id_here.apps.googleusercontent.com
+GMAIL_CLIENT_SECRET=your_client_secret_here
+
+# Exemplo de configuração completa:
+# 1. Vá no Google Cloud Console
+# 2. Crie credenciais OAuth 2.0
+# 3. Configure redirect URI: http://localhost:8000/auth/callback
+# 4. Cole as credenciais aqui
+# 5. Reinicie o servidor

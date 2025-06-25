@@ -1,0 +1,40 @@
+# FastAPI Core
+fastapi[all]
+uvicorn[standard]
+pydantic
+pydantic-settings
+
+# Database
+supabase
+psycopg2-binary
+
+# AI/ML
+google-generativeai
+tiktoken
+numpy
+
+# Google APIs
+google-auth
+google-auth-oauthlib
+google-api-python-client
+
+# HTTP Client
+httpx
+requests
+
+# Utilitários
+python-multipart
+python-jose[cryptography]
+passlib[bcrypt]
+python-dotenv
+
+# WordPress
+requests
+
+# Processamento de texto
+beautifulsoup4
+lxml
+
+# Desenvolvimento
+pytest
+pytest-asyncio 
