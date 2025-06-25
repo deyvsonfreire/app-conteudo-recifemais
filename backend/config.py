@@ -11,9 +11,9 @@ class Settings(BaseSettings):
     APP_VERSION: str = "2.2.0"
     DEBUG: bool = False
     
-    # URLs e Endpoints Públicos
-    WORDPRESS_URL: str = "https://v25.recifemais.com.br"
-    GMAIL_REDIRECT_URI: str = "https://recmais-recifemais-conteudo.tmjyor.easypanel.host/auth/callback"
+    # URLs e Endpoints - PRODUÇÃO
+    WORDPRESS_URL: str = "https://recifemais.com.br"
+    GMAIL_REDIRECT_URI: str = "https://redacao.admin.recifemais.com.br/auth/callback"
     
     # Supabase - URLs públicos
     SUPABASE_URL: str = "https://aoyrpadrrsckxbuadcnf.supabase.co"

@@ -13,7 +13,7 @@ import httpx
 from .config import settings
 from .database import db
 from .modules.ai_processor import ai_processor
-from .modules.wordpress_publisher import wp_publisher
+from .modules.wordpress_publisher import wordpress_publisher
 from .modules.gmail_client import gmail_client
 from .modules.realtime_notifications import realtime_manager
 
