@@ -462,6 +462,93 @@ async def test_email_processing():
     background_tasks = BackgroundTasks()
     return await process_email(test_email, background_tasks)
 
+@app.get("/admin/secure-config")
+async def list_secure_configs():
+    """Lista configurações seguras (apenas chaves, não valores)"""
+    try:
+        from .secure_config import secure_config
+        keys = secure_config.get_all_keys()
+        
+        # Verificar quais estão definidas
+        configs = []
+        for key in keys:
+            value = secure_config.get(key)
+            configs.append({
+                "key": key,
+                "defined": value is not None,
+                "masked_value": "****" if value else None
+            })
+        
+        return {"configs": configs}
+    except Exception as e:
+        logger.error(f"Erro ao listar configurações: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/admin/secure-config/{key}")
+async def set_secure_config_endpoint(key: str, value: str, description: str = ""):
+    """Define configuração segura"""
+    try:
+        from .secure_config import secure_config
+        
+        # Validar chave permitida
+        allowed_keys = secure_config.get_all_keys()
+        if key not in allowed_keys:
+            raise HTTPException(status_code=400, detail=f"Chave não permitida. Chaves válidas: {allowed_keys}")
+        
+        result = secure_config.set(key, value, description)
+        
+        if result:
+            return {"message": f"Configuração '{key}' definida com sucesso"}
+        else:
+            raise HTTPException(status_code=500, detail="Erro ao salvar configuração")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao definir configuração: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/admin/migrate-credentials")
+async def migrate_credentials_endpoint():
+    """Migra credenciais do .env para o banco de dados"""
+    try:
+        from .secure_config import secure_config
+        
+        # Credenciais para migrar
+        credentials_map = {
+            "wordpress_username": settings.WORDPRESS_USERNAME,
+            "wordpress_password": settings.WORDPRESS_PASSWORD,
+            "gmail_client_id": settings.GMAIL_CLIENT_ID,
+            "gmail_client_secret": settings.GMAIL_CLIENT_SECRET,
+            "google_ai_api_key": settings.GOOGLE_AI_API_KEY,
+            "supabase_service_key": settings.SUPABASE_SERVICE_KEY
+        }
+        
+        success_count = 0
+        results = []
+        
+        for key, value in credentials_map.items():
+            if value:
+                result = secure_config.set(key, value, f"Migrado automaticamente de .env")
+                if result:
+                    success_count += 1
+                    results.append({"key": key, "status": "success"})
+                else:
+                    results.append({"key": key, "status": "error"})
+            else:
+                results.append({"key": key, "status": "empty"})
+        
+        return {
+            "message": f"Migração concluída: {success_count}/{len(credentials_map)} credenciais",
+            "results": results,
+            "success_count": success_count,
+            "total_count": len(credentials_map)
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro na migração de credenciais: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000) 

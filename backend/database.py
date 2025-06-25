@@ -114,5 +114,56 @@ class SupabaseManager:
             logger.error(f"Erro ao buscar conteúdo similar: {e}")
             return []
 
+    def get_secure_config(self, key: str) -> Optional[str]:
+        """Busca configuração segura/sensível"""
+        try:
+            result = self.client.table("secure_config").select("encrypted_value").eq("key", key).execute()
+            if result.data:
+                # Por enquanto retorna direto, mas em versão futura implementar decriptação
+                return result.data[0]["encrypted_value"]
+            return None
+        except Exception as e:
+            logger.error(f"Erro ao buscar configuração segura: {e}")
+            return None
+
+    def set_secure_config(self, key: str, value: str, description: str = "") -> bool:
+        """Define configuração segura/sensível"""
+        try:
+            # Por enquanto salva direto, mas em versão futura implementar criptografia
+            data = {
+                "key": key,
+                "encrypted_value": value,
+                "description": description,
+                "updated_at": "now()"
+            }
+            result = self.client.table("secure_config").upsert(data).execute()
+            return len(result.data) > 0
+        except Exception as e:
+            logger.error(f"Erro ao definir configuração segura: {e}")
+            return False
+
+    def store_gmail_credentials(self, credentials_data: Dict[str, Any]) -> bool:
+        """Armazena credenciais OAuth do Gmail de forma persistente"""
+        try:
+            import json
+            # Converter credenciais para JSON
+            creds_json = json.dumps(credentials_data)
+            return self.set_secure_config("gmail_oauth_credentials", creds_json, "Credenciais OAuth Gmail")
+        except Exception as e:
+            logger.error(f"Erro ao armazenar credenciais Gmail: {e}")
+            return False
+
+    def get_gmail_credentials(self) -> Optional[Dict[str, Any]]:
+        """Recupera credenciais OAuth do Gmail"""
+        try:
+            import json
+            creds_json = self.get_secure_config("gmail_oauth_credentials")
+            if creds_json:
+                return json.loads(creds_json)
+            return None
+        except Exception as e:
+            logger.error(f"Erro ao recuperar credenciais Gmail: {e}")
+            return None
+
 # Instância global
 db = SupabaseManager() 

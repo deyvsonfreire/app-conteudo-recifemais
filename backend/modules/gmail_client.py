@@ -80,12 +80,25 @@ class GmailClient:
             # Trocar código por token
             flow.fetch_token(code=authorization_code)
             
-            # Salvar credenciais
+            # Salvar credenciais no banco de dados
+            from ..database import db
+            credentials_data = {
+                "token": flow.credentials.token,
+                "refresh_token": flow.credentials.refresh_token,
+                "token_uri": flow.credentials.token_uri,
+                "client_id": flow.credentials.client_id,
+                "client_secret": flow.credentials.client_secret,
+                "scopes": list(flow.credentials.scopes) if flow.credentials.scopes else [],
+                "expiry": flow.credentials.expiry.isoformat() if flow.credentials.expiry else None
+            }
+            
+            # Salvar no banco E no arquivo (backup)
+            db.store_gmail_credentials(credentials_data)
             with open(self.token_file, 'wb') as token:
                 pickle.dump(flow.credentials, token)
             
             self.credentials = flow.credentials
-            logger.info("Credenciais OAuth salvas com sucesso")
+            logger.info("Credenciais OAuth salvas com sucesso (banco + arquivo)")
             return True
             
         except Exception as e:
@@ -93,8 +106,53 @@ class GmailClient:
             return False
     
     def load_credentials(self) -> bool:
-        """Carrega credenciais salvas"""
+        """Carrega credenciais salvas (prioriza banco de dados)"""
         try:
+            from ..database import db
+            from google.oauth2.credentials import Credentials
+            from datetime import datetime
+            
+            # Tentar carregar do banco primeiro
+            creds_data = db.get_gmail_credentials()
+            if creds_data:
+                logger.info("Carregando credenciais do banco de dados")
+                
+                # Converter de volta para objeto Credentials
+                expiry = None
+                if creds_data.get('expiry'):
+                    expiry = datetime.fromisoformat(creds_data['expiry'])
+                
+                self.credentials = Credentials(
+                    token=creds_data.get('token'),
+                    refresh_token=creds_data.get('refresh_token'),
+                    token_uri=creds_data.get('token_uri'),
+                    client_id=creds_data.get('client_id'),
+                    client_secret=creds_data.get('client_secret'),
+                    scopes=creds_data.get('scopes'),
+                    expiry=expiry
+                )
+                
+                # Verificar se precisa renovar
+                if self.credentials.expired and self.credentials.refresh_token:
+                    logger.info("Renovando token expirado")
+                    self.credentials.refresh(Request())
+                    
+                    # Salvar credenciais atualizadas no banco
+                    updated_data = {
+                        "token": self.credentials.token,
+                        "refresh_token": self.credentials.refresh_token,
+                        "token_uri": self.credentials.token_uri,
+                        "client_id": self.credentials.client_id,
+                        "client_secret": self.credentials.client_secret,
+                        "scopes": list(self.credentials.scopes) if self.credentials.scopes else [],
+                        "expiry": self.credentials.expiry.isoformat() if self.credentials.expiry else None
+                    }
+                    db.store_gmail_credentials(updated_data)
+                
+                return self.credentials and self.credentials.valid
+            
+            # Fallback: tentar carregar do arquivo
+            logger.info("Tentando carregar credenciais do arquivo (fallback)")
             if os.path.exists(self.token_file):
                 with open(self.token_file, 'rb') as token:
                     self.credentials = pickle.load(token)
@@ -103,9 +161,22 @@ class GmailClient:
                 if self.credentials and self.credentials.expired and self.credentials.refresh_token:
                     self.credentials.refresh(Request())
                     
-                    # Salvar credenciais atualizadas
+                    # Salvar credenciais atualizadas no arquivo E no banco
                     with open(self.token_file, 'wb') as token:
                         pickle.dump(self.credentials, token)
+                    
+                    # Migrar para banco
+                    credentials_data = {
+                        "token": self.credentials.token,
+                        "refresh_token": self.credentials.refresh_token,
+                        "token_uri": self.credentials.token_uri,
+                        "client_id": self.credentials.client_id,
+                        "client_secret": self.credentials.client_secret,
+                        "scopes": list(self.credentials.scopes) if self.credentials.scopes else [],
+                        "expiry": self.credentials.expiry.isoformat() if self.credentials.expiry else None
+                    }
+                    db.store_gmail_credentials(credentials_data)
+                    logger.info("Credenciais migradas do arquivo para o banco")
                 
                 return self.credentials and self.credentials.valid
             
