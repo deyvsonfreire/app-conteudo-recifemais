@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     GOOGLE_AI_API_KEY: str = "AIzaSyBuPRxQo9lQEcyLVovTT-VSZAvl-b5i0U4"
     GMAIL_CLIENT_ID: Optional[str] = None
     GMAIL_CLIENT_SECRET: Optional[str] = None
-    GMAIL_REDIRECT_URI: str = "http://localhost:8000/auth/callback"
+    GMAIL_REDIRECT_URI: str = "https://recmais-recifemais-conteudo.tmjyor.easypanel.host/auth/callback"
     
     # WordPress
     WORDPRESS_URL: str = "https://v25.recifemais.com.br"
@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     
     # Configurações de IA
     MAX_TOKENS_PER_REQUEST: int = 8000
-    EMBEDDING_MODEL: str = "text-embedding-3-small"
+    EMBEDDING_MODEL: str = "text-embedding-004"
     GEMINI_MODEL: str = "gemini-2.0-flash-exp"
     
     # Configurações de processamento
