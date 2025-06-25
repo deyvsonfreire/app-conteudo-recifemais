@@ -418,9 +418,19 @@ class AuthManager:
                 
                 # Login nos últimos 7 dias
                 if user.get("last_sign_in"):
-                    last_login = datetime.fromisoformat(user["last_sign_in"].replace('Z', '+00:00'))
-                    if last_login > datetime.now().replace(tzinfo=last_login.tzinfo) - timedelta(days=7):
-                        stats["recent_logins"] += 1
+                    try:
+                        last_sign_in = user["last_sign_in"]
+                        # Converter string para datetime se necessário
+                        if isinstance(last_sign_in, str):
+                            last_login = datetime.fromisoformat(last_sign_in.replace('Z', '+00:00'))
+                        else:
+                            last_login = last_sign_in
+                        
+                        if last_login > datetime.now().replace(tzinfo=last_login.tzinfo) - timedelta(days=7):
+                            stats["recent_logins"] += 1
+                    except (ValueError, TypeError):
+                        # Ignorar se não conseguir converter a data
+                        pass
             
             return stats
             
