@@ -1,7 +1,7 @@
 """
 Aplicação FastAPI principal - RecifeMais Conteúdo
 """
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
@@ -2584,6 +2584,286 @@ async def assign_workflow_email(
     except Exception as e:
         logger.error(f"Erro ao atribuir email: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# ==========================================
+# SECURE CONFIG ENDPOINTS
+# ==========================================
+
+@app.get("/admin/secure-config")
+async def get_secure_config():
+    """Listar configurações seguras (sem valores sensíveis)"""
+    try:
+        # Lista de chaves de configuração
+        config_keys = [
+            "wordpress_url",
+            "wordpress_username", 
+            "wordpress_password",
+            "gmail_client_id",
+            "gmail_client_secret", 
+            "google_ai_api_key",
+            "supabase_service_key",
+            "ga4_property_id",
+            "gsc_site_url"
+        ]
+        
+        configs = []
+        for key in config_keys:
+            value = db.get_secure_config(key)
+            configs.append({
+                "key": key,
+                "defined": bool(value),
+                "masked_value": "••••••••" if value else None,
+                "value": value if key in ["wordpress_url", "ga4_property_id", "gsc_site_url"] else None  # URLs podem ser mostradas
+            })
+        
+        return {"configs": configs}
+        
+    except Exception as e:
+        logger.error(f"Erro ao listar configurações seguras: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/admin/secure-config/{key}")
+async def set_secure_config(key: str, value: str = Form(...), description: str = Form(None)):
+    """Definir configuração segura"""
+    try:
+        # Validar chave
+        allowed_keys = [
+            "wordpress_url", "wordpress_username", "wordpress_password",
+            "gmail_client_id", "gmail_client_secret", 
+            "google_ai_api_key", "supabase_service_key",
+            "ga4_property_id", "gsc_site_url"
+        ]
+        
+        if key not in allowed_keys:
+            raise HTTPException(status_code=400, detail=f"Chave '{key}' não permitida")
+        
+        # Salvar configuração
+        success = db.set_secure_config(key, value, description or f"Configuração {key} atualizada")
+        
+        if success:
+            logger.info(f"Configuração {key} atualizada com sucesso")
+            return {"message": f"Configuração {key} salva com sucesso"}
+        else:
+            raise HTTPException(status_code=500, detail="Erro ao salvar configuração")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao salvar configuração {key}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==========================================
+# IMPROVED OAUTH ENDPOINTS
+# ==========================================
+
+@app.get("/auth/gmail")
+async def gmail_auth_start():
+    """Iniciar autenticação OAuth do Gmail (um clique)"""
+    try:
+        # Verificar se já está autenticado
+        if gmail_client.is_authenticated():
+            return {"message": "Gmail já está autenticado", "authenticated": True}
+        
+        # Gerar URL de autenticação
+        auth_url = gmail_client.get_auth_url()
+        
+        if not auth_url:
+            raise HTTPException(status_code=500, detail="Erro ao gerar URL de autenticação")
+        
+        return {"auth_url": auth_url, "message": "URL de autenticação gerada"}
+        
+    except Exception as e:
+        logger.error(f"Erro na autenticação Gmail: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/auth/google")
+async def google_data_auth_start():
+    """Iniciar autenticação OAuth do Google Data (Analytics + Search Console)"""
+    try:
+        # Verificar se já está autenticado
+        if google_connector.is_authenticated():
+            return {"message": "Google Data já está autenticado", "authenticated": True}
+        
+        # Gerar URL de autenticação
+        auth_url = google_connector.get_auth_url()
+        
+        if not auth_url:
+            raise HTTPException(status_code=500, detail="Erro ao gerar URL de autenticação")
+        
+        return {"auth_url": auth_url, "message": "URL de autenticação gerada"}
+        
+    except Exception as e:
+        logger.error(f"Erro na autenticação Google Data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/auth/callback")
+async def oauth_callback(code: str = None, state: str = None, error: str = None):
+    """Callback OAuth universal para Gmail e Google Data"""
+    try:
+        if error:
+            raise HTTPException(status_code=400, detail=f"Erro de autenticação: {error}")
+        
+        if not code:
+            raise HTTPException(status_code=400, detail="Código de autorização não fornecido")
+        
+        # Determinar qual serviço baseado no state ou tentar ambos
+        success_gmail = False
+        success_google_data = False
+        
+        try:
+            # Tentar Gmail primeiro
+            success_gmail = gmail_client.handle_callback(code)
+        except:
+            pass
+        
+        try:
+            # Tentar Google Data
+            success_google_data = google_connector.handle_callback(code)
+        except:
+            pass
+        
+        if success_gmail or success_google_data:
+            services = []
+            if success_gmail:
+                services.append("Gmail")
+            if success_google_data:
+                services.append("Google Analytics")
+            
+            return Response(content=f"""
+                <html>
+                    <head><title>Autenticação Concluída</title></head>
+                    <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+                        <h2 style="color: green;">✅ Autenticação Concluída!</h2>
+                        <p>Serviços conectados: {', '.join(services)}</p>
+                        <p>Você pode fechar esta janela e retornar ao painel administrativo.</p>
+                        <script>
+                            setTimeout(() => window.close(), 3000);
+                        </script>
+                    </body>
+                </html>
+            """, media_type="text/html")
+        else:
+            raise HTTPException(status_code=400, detail="Falha na autenticação")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro no callback OAuth: {e}")
+        return Response(content=f"""
+            <html>
+                <head><title>Erro de Autenticação</title></head>
+                <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+                    <h2 style="color: red;">❌ Erro na Autenticação</h2>
+                    <p>{str(e)}</p>
+                    <p>Feche esta janela e tente novamente.</p>
+                    <script>
+                        setTimeout(() => window.close(), 5000);
+                    </script>
+                </body>
+            </html>
+        """, media_type="text/html")
+
+# ==========================================
+# ENHANCED ANALYTICS ENDPOINTS
+# ==========================================
+
+@app.get("/google-data/dashboard")
+async def get_google_data_dashboard():
+    """Dashboard completo com dados do Google Analytics e Search Console"""
+    try:
+        # Verificar autenticação
+        if not google_connector.is_authenticated():
+            raise HTTPException(status_code=401, detail="Google Data não autenticado")
+        
+        # Coletar dados de analytics
+        dashboard_data = {
+            "analytics": None,
+            "search_console": None,
+            "content_performance": []
+        }
+        
+        try:
+            # Dados do Google Analytics
+            analytics_data = google_connector.get_analytics_summary(days=30)
+            if analytics_data:
+                dashboard_data["analytics"] = {
+                    "unique_visitors": analytics_data.get("unique_visitors", 0),
+                    "page_views": analytics_data.get("page_views", 0),
+                    "sessions": analytics_data.get("sessions", 0),
+                    "bounce_rate": analytics_data.get("bounce_rate", 0),
+                    "visitors_change": analytics_data.get("visitors_change", 0),
+                    "views_change": analytics_data.get("views_change", 0),
+                    "sessions_change": analytics_data.get("sessions_change", 0),
+                    "bounce_change": analytics_data.get("bounce_change", 0),
+                    "visitors_timeline": analytics_data.get("visitors_timeline", []),
+                    "top_pages": analytics_data.get("top_pages", [])
+                }
+        except Exception as e:
+            logger.warning(f"Erro ao obter dados do Analytics: {e}")
+        
+        try:
+            # Dados do Search Console
+            search_data = google_connector.get_search_console_summary(days=30)
+            if search_data:
+                dashboard_data["search_console"] = {
+                    "total_clicks": search_data.get("total_clicks", 0),
+                    "total_impressions": search_data.get("total_impressions", 0),
+                    "average_ctr": search_data.get("average_ctr", 0),
+                    "average_position": search_data.get("average_position", 0)
+                }
+        except Exception as e:
+            logger.warning(f"Erro ao obter dados do Search Console: {e}")
+        
+        try:
+            # Performance de conteúdo (combinar dados)
+            content_performance = google_connector.get_content_performance(days=30)
+            if content_performance:
+                dashboard_data["content_performance"] = content_performance
+        except Exception as e:
+            logger.warning(f"Erro ao obter performance de conteúdo: {e}")
+        
+        return dashboard_data
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao obter dashboard do Google Data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/google-data/status")
+async def get_google_data_status():
+    """Status da conexão com Google Data"""
+    try:
+        is_authenticated = google_connector.is_authenticated()
+        
+        status = {
+            "authenticated": is_authenticated,
+            "services": {
+                "analytics": False,
+                "search_console": False
+            }
+        }
+        
+        if is_authenticated:
+            try:
+                # Testar Analytics
+                analytics_test = google_connector.test_analytics_connection()
+                status["services"]["analytics"] = analytics_test
+            except:
+                pass
+            
+            try:
+                # Testar Search Console
+                search_test = google_connector.test_search_console_connection()
+                status["services"]["search_console"] = search_test
+            except:
+                pass
+        
+        return status
+        
+    except Exception as e:
+        logger.error(f"Erro ao verificar status do Google Data: {e}")
+        return {"authenticated": False, "error": str(e)}
 
 if __name__ == "__main__":
     import uvicorn

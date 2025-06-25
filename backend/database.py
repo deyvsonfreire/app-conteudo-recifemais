@@ -4,6 +4,7 @@ Conexão e utilitários do Supabase
 from supabase import create_client, Client
 from typing import Optional, Dict, Any, List
 import logging
+from datetime import datetime
 
 # Import com fallback para desenvolvimento e produção
 try:
@@ -155,31 +156,64 @@ class SupabaseManager:
             return []
 
     def get_secure_config(self, key: str) -> Optional[str]:
-        """Busca configuração segura/sensível"""
+        """Obter configuração segura do banco de dados"""
         try:
-            result = self.client.table("secure_config").select("encrypted_value").eq("key", key).execute()
-            if result.data:
-                # Por enquanto retorna direto, mas em versão futura implementar decriptação
-                return result.data[0]["encrypted_value"]
+            response = self.client.table("secure_config").select("value").eq("key", key).execute()
+            
+            if response.data and len(response.data) > 0:
+                return response.data[0]["value"]
+            
             return None
+            
         except Exception as e:
-            logger.error(f"Erro ao buscar configuração segura: {e}")
+            logger.error(f"Erro ao obter configuração segura {key}: {e}")
             return None
 
-    def set_secure_config(self, key: str, value: str, description: str = "") -> bool:
-        """Define configuração segura/sensível"""
+    def set_secure_config(self, key: str, value: str, description: str = None) -> bool:
+        """Definir configuração segura no banco de dados"""
         try:
-            # Por enquanto salva direto, mas em versão futura implementar criptografia
+            # Verificar se já existe
+            existing = self.client.table("secure_config").select("id").eq("key", key).execute()
+            
             data = {
                 "key": key,
-                "encrypted_value": value,
-                "description": description,
-                "updated_at": "now()"
+                "value": value,
+                "description": description or f"Configuração {key}",
+                "updated_at": datetime.now().isoformat()
             }
-            result = self.client.table("secure_config").upsert(data).execute()
-            return len(result.data) > 0
+            
+            if existing.data:
+                # Atualizar existente
+                response = self.client.table("secure_config").update(data).eq("key", key).execute()
+            else:
+                # Criar novo
+                data["created_at"] = datetime.now().isoformat()
+                response = self.client.table("secure_config").insert(data).execute()
+            
+            return bool(response.data)
+            
         except Exception as e:
-            logger.error(f"Erro ao definir configuração segura: {e}")
+            logger.error(f"Erro ao salvar configuração segura {key}: {e}")
+            return False
+
+    def list_secure_configs(self) -> List[Dict]:
+        """Listar todas as configurações seguras (sem valores)"""
+        try:
+            response = self.client.table("secure_config").select("key, description, created_at, updated_at").execute()
+            return response.data or []
+            
+        except Exception as e:
+            logger.error(f"Erro ao listar configurações seguras: {e}")
+            return []
+
+    def delete_secure_config(self, key: str) -> bool:
+        """Deletar configuração segura"""
+        try:
+            response = self.client.table("secure_config").delete().eq("key", key).execute()
+            return bool(response.data)
+            
+        except Exception as e:
+            logger.error(f"Erro ao deletar configuração segura {key}: {e}")
             return False
 
     def store_gmail_credentials(self, credentials_data: Dict[str, Any]) -> bool:

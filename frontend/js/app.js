@@ -235,25 +235,118 @@ class AppController {
     // ==========================================
     
     setupGlobalErrorHandling() {
+        // Contador para evitar spam de notificações
+        this.errorCount = 0;
+        this.lastErrorTime = 0;
+        
         window.addEventListener('error', (event) => {
             console.error('Erro global:', event.error);
-            this.showGlobalError('Ocorreu um erro inesperado');
+            this.handleGlobalError('Ocorreu um erro inesperado', event.error);
         });
         
         window.addEventListener('unhandledrejection', (event) => {
             console.error('Promise rejeitada:', event.reason);
-            this.showGlobalError('Erro de conexão ou processamento');
+            this.handleGlobalError('Erro de conexão ou processamento', event.reason);
         });
     }
     
-    showGlobalError(message) {
-        // Implementar notificação global de erro
-        console.error('🚨 Erro global:', message);
+    handleGlobalError(message, error) {
+        const now = Date.now();
         
-        // Por enquanto, usar alert - depois implementar toast/notification
-        if (confirm(`${message}\n\nDeseja recarregar a página?`)) {
-            window.location.reload();
+        // Evitar spam de alertas (máximo 1 por 10 segundos)
+        if (now - this.lastErrorTime < 10000) {
+            console.warn('Erro ignorado para evitar spam:', message);
+            return;
         }
+        
+        this.lastErrorTime = now;
+        this.errorCount++;
+        
+        // Mostrar notificação toast em vez de alert
+        this.showToastNotification(message, 'error');
+        
+        // Após 3 erros, sugerir recarregar página
+        if (this.errorCount >= 3) {
+            this.showReloadSuggestion();
+        }
+    }
+    
+    showToastNotification(message, type = 'info') {
+        // Remover notificação anterior se existir
+        const existingToast = document.getElementById('globalToast');
+        if (existingToast) {
+            existingToast.remove();
+        }
+        
+        // Criar notificação toast
+        const toast = document.createElement('div');
+        toast.id = 'globalToast';
+        toast.className = `fixed top-4 right-4 z-50 max-w-sm p-4 rounded-lg shadow-lg transform transition-all duration-300 ${
+            type === 'error' ? 'bg-red-500 text-white' : 
+            type === 'warning' ? 'bg-yellow-500 text-white' :
+            type === 'success' ? 'bg-green-500 text-white' : 
+            'bg-blue-500 text-white'
+        }`;
+        
+        toast.innerHTML = `
+            <div class="flex items-center">
+                <span class="mr-3">${
+                    type === 'error' ? '⚠️' : 
+                    type === 'warning' ? '⚠️' : 
+                    type === 'success' ? '✅' : 
+                    'ℹ️'
+                }</span>
+                <span class="flex-1">${message}</span>
+                <button onclick="this.parentElement.parentElement.remove()" class="ml-3 text-white hover:text-gray-200">
+                    ✕
+                </button>
+            </div>
+        `;
+        
+        document.body.appendChild(toast);
+        
+        // Auto-remover após 5 segundos
+        setTimeout(() => {
+            if (toast.parentElement) {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                setTimeout(() => toast.remove(), 300);
+            }
+        }, 5000);
+    }
+    
+    showReloadSuggestion() {
+        const toast = document.createElement('div');
+        toast.className = 'fixed top-4 right-4 z-50 max-w-sm p-4 bg-orange-500 text-white rounded-lg shadow-lg';
+        
+        toast.innerHTML = `
+            <div class="space-y-3">
+                <div class="flex items-center">
+                    <span class="mr-3">🔄</span>
+                    <span class="flex-1">Múltiplos erros detectados</span>
+                </div>
+                <div class="text-sm opacity-90">
+                    Recomendamos recarregar a página para resolver problemas de conexão.
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="window.location.reload()" 
+                            class="bg-white text-orange-500 px-3 py-1 rounded text-sm font-medium hover:bg-gray-100">
+                        Recarregar
+                    </button>
+                    <button onclick="this.parentElement.parentElement.parentElement.remove(); appController.errorCount = 0;" 
+                            class="bg-orange-600 text-white px-3 py-1 rounded text-sm hover:bg-orange-700">
+                        Ignorar
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(toast);
+    }
+    
+    showGlobalError(message) {
+        // Método mantido para compatibilidade, mas agora usa toast
+        this.showToastNotification(message, 'error');
     }
 }
 

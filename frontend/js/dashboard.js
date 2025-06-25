@@ -235,16 +235,47 @@ class DashboardManager {
         if (!container) return;
         
         try {
+            showLoading('Carregando dados do Google Analytics...');
+            
+            // Carregar dados de analytics
             const response = await authManager.apiCall('/google-data/dashboard');
+            
             if (response.ok) {
                 const data = await response.json();
                 this.renderGoogleDataDashboard(data);
             } else {
-                container.innerHTML = '<p class="text-gray-500">Dados do Google Analytics não disponíveis. Configure a integração primeiro.</p>';
+                // Verificar se é erro de autenticação
+                if (response.status === 401 || response.status === 403) {
+                    container.innerHTML = `
+                        <div class="text-center py-8">
+                            <div class="text-gray-400 text-6xl mb-4">📊</div>
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">Google Analytics não conectado</h3>
+                            <p class="text-gray-500 mb-4">Configure a integração com Google Analytics para ver os dados aqui.</p>
+                            <button onclick="appController.showSection('config')" 
+                                    class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                                Configurar Agora
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    throw new Error('Erro ao carregar dados de analytics');
+                }
             }
         } catch (error) {
             console.error('Erro ao carregar analytics:', error);
-            container.innerHTML = '<p class="text-red-500">Erro ao carregar dados de analytics.</p>';
+            container.innerHTML = `
+                <div class="text-center py-8">
+                    <div class="text-red-400 text-6xl mb-4">⚠️</div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Erro ao carregar dados</h3>
+                    <p class="text-red-500 mb-4">${error.message}</p>
+                    <button onclick="dashboardManager.loadAnalyticsData()" 
+                            class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700">
+                        Tentar Novamente
+                    </button>
+                </div>
+            `;
+        } finally {
+            hideLoading();
         }
     }
     
@@ -371,48 +402,325 @@ class DashboardManager {
     
     renderGoogleDataDashboard(data) {
         const container = document.getElementById('googleDataDashboard');
-        if (!container || !data) return;
-        
-        // Renderizar dados do Google Analytics e Search Console
+        if (!container) return;
+
+        // Verificar se há dados
+        if (!data || (!data.analytics && !data.search_console)) {
+            container.innerHTML = `
+                <div class="text-center py-8">
+                    <div class="text-yellow-400 text-6xl mb-4">📈</div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Dados sendo coletados</h3>
+                    <p class="text-gray-500 mb-4">Os dados do Google Analytics estão sendo processados. Tente novamente em alguns minutos.</p>
+                    <button onclick="dashboardManager.loadAnalyticsData()" 
+                            class="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700">
+                        Atualizar
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
+        // Renderizar dashboard com dados
         container.innerHTML = `
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="bg-gray-50 p-4 rounded-lg">
-                    <h3 class="text-lg font-medium text-gray-900 mb-3">Search Console</h3>
-                    <div class="space-y-2">
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">Total de Clicks:</span>
-                            <span class="text-sm font-medium">${data.gsc?.summary?.total_clicks || '--'}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">Total de Impressões:</span>
-                            <span class="text-sm font-medium">${data.gsc?.summary?.total_impressions || '--'}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">CTR Médio:</span>
-                            <span class="text-sm font-medium">${data.gsc?.summary?.avg_ctr ? (data.gsc.summary.avg_ctr * 100).toFixed(2) + '%' : '--'}</span>
-                        </div>
+            <div class="space-y-6">
+                <!-- Métricas Principais -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    ${this.renderAnalyticsCards(data.analytics)}
+                </div>
+
+                <!-- Gráficos -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Gráfico de Visitantes -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Visitantes (Últimos 30 dias)</h3>
+                        <div id="visitorsChart" class="h-64"></div>
+                    </div>
+
+                    <!-- Gráfico de Páginas Mais Visitadas -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Páginas Mais Visitadas</h3>
+                        <div id="pagesChart" class="h-64"></div>
                     </div>
                 </div>
-                
-                <div class="bg-gray-50 p-4 rounded-lg">
-                    <h3 class="text-lg font-medium text-gray-900 mb-3">Google Analytics</h3>
-                    <div class="space-y-2">
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">Sessões:</span>
-                            <span class="text-sm font-medium">${data.ga4?.totals?.sessions || '--'}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">Usuários:</span>
-                            <span class="text-sm font-medium">${data.ga4?.totals?.users || '--'}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">Pageviews:</span>
-                            <span class="text-sm font-medium">${data.ga4?.totals?.pageviews || '--'}</span>
-                        </div>
+
+                <!-- Search Console Data -->
+                ${data.search_console ? this.renderSearchConsoleData(data.search_console) : ''}
+
+                <!-- Tabela de Conteúdo Recente -->
+                <div class="bg-white rounded-lg shadow">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg font-medium text-gray-900">Performance de Conteúdo Recente</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        ${this.renderContentPerformanceTable(data)}
                     </div>
                 </div>
             </div>
         `;
+
+        // Renderizar gráficos
+        this.renderCharts(data);
+    }
+
+    renderAnalyticsCards(analytics) {
+        if (!analytics) return '';
+
+        const cards = [
+            {
+                title: 'Visitantes Únicos',
+                value: analytics.unique_visitors || 0,
+                change: analytics.visitors_change || 0,
+                icon: '👥'
+            },
+            {
+                title: 'Visualizações',
+                value: analytics.page_views || 0,
+                change: analytics.views_change || 0,
+                icon: '👁️'
+            },
+            {
+                title: 'Sessões',
+                value: analytics.sessions || 0,
+                change: analytics.sessions_change || 0,
+                icon: '🔄'
+            },
+            {
+                title: 'Taxa de Rejeição',
+                value: `${analytics.bounce_rate || 0}%`,
+                change: analytics.bounce_change || 0,
+                icon: '📊',
+                inverse: true // Para taxa de rejeição, menor é melhor
+            }
+        ];
+
+        return cards.map(card => `
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="text-2xl mr-3">${card.icon}</div>
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-gray-600">${card.title}</p>
+                        <p class="text-2xl font-bold text-gray-900">${typeof card.value === 'number' ? card.value.toLocaleString() : card.value}</p>
+                        ${card.change !== 0 ? `
+                            <p class="text-sm ${
+                                (card.inverse ? card.change < 0 : card.change > 0) ? 'text-green-600' : 'text-red-600'
+                            }">
+                                ${card.change > 0 ? '+' : ''}${card.change}% vs mês anterior
+                            </p>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    renderSearchConsoleData(searchConsole) {
+        return `
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Google Search Console</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-blue-600">${(searchConsole.total_clicks || 0).toLocaleString()}</div>
+                        <div class="text-sm text-gray-600">Cliques Totais</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-green-600">${(searchConsole.total_impressions || 0).toLocaleString()}</div>
+                        <div class="text-sm text-gray-600">Impressões</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-purple-600">${(searchConsole.average_ctr || 0).toFixed(2)}%</div>
+                        <div class="text-sm text-gray-600">CTR Médio</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    renderContentPerformanceTable(data) {
+        const content = data.content_performance || [];
+        
+        if (content.length === 0) {
+            return `
+                <div class="text-center py-8">
+                    <p class="text-gray-500">Nenhum dado de performance disponível</p>
+                </div>
+            `;
+        }
+
+        return `
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Página</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Visualizações</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliques</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CTR</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Posição Média</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    ${content.map(item => `
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">${item.title || 'Sem título'}</div>
+                                <div class="text-sm text-gray-500">${item.url}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                ${(item.page_views || 0).toLocaleString()}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                ${(item.clicks || 0).toLocaleString()}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                ${(item.ctr || 0).toFixed(2)}%
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                ${(item.position || 0).toFixed(1)}
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    }
+
+    renderCharts(data) {
+        // Renderizar gráfico de visitantes
+        this.renderVisitorsChart(data.analytics?.visitors_timeline || []);
+        
+        // Renderizar gráfico de páginas
+        this.renderPagesChart(data.analytics?.top_pages || []);
+    }
+
+    renderVisitorsChart(visitorsData) {
+        const container = document.getElementById('visitorsChart');
+        if (!container || !visitorsData.length) {
+            container.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">Dados não disponíveis</div>';
+            return;
+        }
+
+        // Usar Chart.js simples com Canvas
+        container.innerHTML = `
+            <canvas id="visitorsCanvas" width="400" height="200"></canvas>
+        `;
+
+        const canvas = document.getElementById('visitorsCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Dados para o gráfico
+        const labels = visitorsData.map(d => new Date(d.date).toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' }));
+        const values = visitorsData.map(d => d.visitors);
+        
+        // Desenhar gráfico simples
+        this.drawLineChart(ctx, labels, values, '#3B82F6');
+    }
+
+    renderPagesChart(pagesData) {
+        const container = document.getElementById('pagesChart');
+        if (!container || !pagesData.length) {
+            container.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">Dados não disponíveis</div>';
+            return;
+        }
+
+        // Renderizar como lista estilizada
+        const topPages = pagesData.slice(0, 5);
+        const maxViews = Math.max(...topPages.map(p => p.views));
+
+        container.innerHTML = `
+            <div class="space-y-3">
+                ${topPages.map(page => `
+                    <div class="flex items-center">
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-gray-900 truncate">${page.title || 'Sem título'}</div>
+                            <div class="text-xs text-gray-500 truncate">${page.path}</div>
+                        </div>
+                        <div class="ml-4 flex items-center">
+                            <div class="w-20 bg-gray-200 rounded-full h-2 mr-2">
+                                <div class="bg-blue-600 h-2 rounded-full" style="width: ${(page.views / maxViews) * 100}%"></div>
+                            </div>
+                            <span class="text-sm font-medium text-gray-900 w-12 text-right">${page.views.toLocaleString()}</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    drawLineChart(ctx, labels, values, color) {
+        const canvas = ctx.canvas;
+        const width = canvas.width;
+        const height = canvas.height;
+        const padding = 40;
+        
+        // Limpar canvas
+        ctx.clearRect(0, 0, width, height);
+        
+        if (values.length === 0) return;
+        
+        // Calcular escalas
+        const maxValue = Math.max(...values);
+        const minValue = Math.min(...values);
+        const valueRange = maxValue - minValue || 1;
+        
+        const stepX = (width - 2 * padding) / (labels.length - 1);
+        const stepY = (height - 2 * padding) / valueRange;
+        
+        // Desenhar eixos
+        ctx.strokeStyle = '#E5E7EB';
+        ctx.lineWidth = 1;
+        
+        // Eixo X
+        ctx.beginPath();
+        ctx.moveTo(padding, height - padding);
+        ctx.lineTo(width - padding, height - padding);
+        ctx.stroke();
+        
+        // Eixo Y
+        ctx.beginPath();
+        ctx.moveTo(padding, padding);
+        ctx.lineTo(padding, height - padding);
+        ctx.stroke();
+        
+        // Desenhar linha
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        
+        values.forEach((value, index) => {
+            const x = padding + index * stepX;
+            const y = height - padding - (value - minValue) * stepY;
+            
+            if (index === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+        
+        ctx.stroke();
+        
+        // Desenhar pontos
+        ctx.fillStyle = color;
+        values.forEach((value, index) => {
+            const x = padding + index * stepX;
+            const y = height - padding - (value - minValue) * stepY;
+            
+            ctx.beginPath();
+            ctx.arc(x, y, 3, 0, 2 * Math.PI);
+            ctx.fill();
+        });
+        
+        // Labels do eixo X (apenas alguns)
+        ctx.fillStyle = '#6B7280';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        
+        const labelStep = Math.ceil(labels.length / 5);
+        labels.forEach((label, index) => {
+            if (index % labelStep === 0) {
+                const x = padding + index * stepX;
+                ctx.fillText(label, x, height - padding + 15);
+            }
+        });
     }
     
     renderUsersTable(users) {
