@@ -15,8 +15,8 @@ class WordPressPublisher:
         self.base_url = settings.WORDPRESS_URL.rstrip('/')
         self.api_url = f"{self.base_url}/wp-json/wp/v2"
         self.auth = HTTPBasicAuth(
-            settings.WORDPRESS_USERNAME,
-            settings.WORDPRESS_PASSWORD
+            settings.secure_wordpress_username,
+            settings.secure_wordpress_password
         )
     
     def test_connection(self) -> bool:

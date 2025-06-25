@@ -34,11 +34,18 @@ class GmailClient:
     def get_authorization_url(self) -> str:
         """Gera URL de autorização OAuth"""
         try:
+            # Usar credenciais seguras do banco de dados
+            client_id = settings.secure_gmail_client_id
+            client_secret = settings.secure_gmail_client_secret
+            
+            if not client_id or not client_secret:
+                raise ValueError("Credenciais Gmail não configuradas")
+            
             flow = Flow.from_client_config(
                 {
                     "web": {
-                        "client_id": settings.GMAIL_CLIENT_ID,
-                        "client_secret": settings.GMAIL_CLIENT_SECRET,
+                        "client_id": client_id,
+                        "client_secret": client_secret,
                         "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                         "token_uri": "https://oauth2.googleapis.com/token",
                         "redirect_uris": [settings.GMAIL_REDIRECT_URI]
@@ -63,11 +70,18 @@ class GmailClient:
     def handle_oauth_callback(self, authorization_code: str) -> bool:
         """Processa callback OAuth e salva credenciais"""
         try:
+            # Usar credenciais seguras do banco de dados
+            client_id = settings.secure_gmail_client_id
+            client_secret = settings.secure_gmail_client_secret
+            
+            if not client_id or not client_secret:
+                raise ValueError("Credenciais Gmail não configuradas")
+            
             flow = Flow.from_client_config(
                 {
                     "web": {
-                        "client_id": settings.GMAIL_CLIENT_ID,
-                        "client_secret": settings.GMAIL_CLIENT_SECRET,
+                        "client_id": client_id,
+                        "client_secret": client_secret,
                         "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                         "token_uri": "https://oauth2.googleapis.com/token",
                         "redirect_uris": [settings.GMAIL_REDIRECT_URI]

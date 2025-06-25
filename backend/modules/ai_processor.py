@@ -13,7 +13,7 @@ import tiktoken
 logger = logging.getLogger(__name__)
 
 # Configurar Gemini
-genai.configure(api_key=settings.GOOGLE_AI_API_KEY)
+genai.configure(api_key=settings.secure_google_ai_api_key)
 
 class AIProcessor:
     def __init__(self):
