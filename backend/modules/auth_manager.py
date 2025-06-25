@@ -104,15 +104,18 @@ class AuthManager:
             response = self.supabase.auth.admin.list_users()
             
             users = []
-            for user in response:
+            # A resposta pode ser um objeto com atributo 'users' ou uma lista direta
+            user_list = response.users if hasattr(response, 'users') else response
+            
+            for user in user_list:
                 user_data = {
                     "id": user.id,
                     "email": user.email,
-                    "role": user.user_metadata.get("role", "viewer"),
+                    "role": user.user_metadata.get("role", "viewer") if user.user_metadata else "viewer",
                     "created_at": user.created_at,
                     "last_sign_in": user.last_sign_in_at,
                     "email_confirmed": user.email_confirmed_at is not None,
-                    "is_active": not user.banned_until
+                    "is_active": not user.banned_until if hasattr(user, 'banned_until') else True
                 }
                 users.append(user_data)
             
