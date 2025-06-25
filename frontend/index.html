@@ -135,9 +135,17 @@
                                 <i data-lucide="mail" class="h-4 w-4 mr-1"></i>
                                 Emails
                             </a>
-                            <a href="#" class="nav-link" data-section="content">
-                                <i data-lucide="file-text" class="h-4 w-4 mr-1"></i>
-                                Conteúdo
+                            <a href="#" class="nav-link" data-section="workflow">
+                                <i data-lucide="workflow" class="h-4 w-4 mr-1"></i>
+                                Workflow
+                            </a>
+                            <a href="#" class="nav-link" data-section="posts">
+                                <i data-lucide="newspaper" class="h-4 w-4 mr-1"></i>
+                                Posts
+                            </a>
+                            <a href="#" class="nav-link" data-section="config">
+                                <i data-lucide="settings" class="h-4 w-4 mr-1"></i>
+                                Configurações
                             </a>
                             <a href="#" class="nav-link" data-section="users" id="usersNavLink" style="display: none;">
                                 <i data-lucide="users" class="h-4 w-4 mr-1"></i>
@@ -434,15 +442,393 @@
                 </div>
             </div>
 
+            <!-- Posts Section -->
+            <div id="postsSection" class="dashboard-section hidden">
+                <div class="px-4 py-6 sm:px-0">
+                    <h1 class="text-2xl font-bold text-gray-900 mb-6">Posts Publicados</h1>
+                    
+                    <!-- Posts Stats -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-white overflow-hidden shadow rounded-lg">
+                            <div class="p-5">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <i data-lucide="file-text" class="h-6 w-6 text-blue-600"></i>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt class="text-sm font-medium text-gray-500 truncate">
+                                                Total de Posts
+                                            </dt>
+                                            <dd id="totalPosts" class="text-lg font-medium text-gray-900">
+                                                --
+                                            </dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white overflow-hidden shadow rounded-lg">
+                            <div class="p-5">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <i data-lucide="calendar" class="h-6 w-6 text-green-600"></i>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt class="text-sm font-medium text-gray-500 truncate">
+                                                Posts Esta Semana
+                                            </dt>
+                                            <dd id="postsThisWeek" class="text-lg font-medium text-gray-900">
+                                                --
+                                            </dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white overflow-hidden shadow rounded-lg">
+                            <div class="p-5">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <i data-lucide="eye" class="h-6 w-6 text-purple-600"></i>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt class="text-sm font-medium text-gray-500 truncate">
+                                                Visualizações
+                                            </dt>
+                                            <dd id="totalViews" class="text-lg font-medium text-gray-900">
+                                                --
+                                            </dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white overflow-hidden shadow rounded-lg">
+                            <div class="p-5">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <i data-lucide="trending-up" class="h-6 w-6 text-orange-600"></i>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt class="text-sm font-medium text-gray-500 truncate">
+                                                Engajamento
+                                            </dt>
+                                            <dd id="avgEngagement" class="text-lg font-medium text-gray-900">
+                                                --
+                                            </dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Posts Table -->
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                            <h2 class="text-lg font-medium text-gray-900">Lista de Posts</h2>
+                            <button id="refreshPostsButton" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                                <i data-lucide="refresh-cw" class="h-4 w-4 mr-1 inline"></i>
+                                Atualizar
+                            </button>
+                        </div>
+                        <div id="postsTable" class="overflow-x-auto">
+                            <!-- Posts table will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Workflow Section -->
+            <div id="workflowSection" class="dashboard-section hidden">
+                <div class="px-4 py-6 sm:px-0">
+                    <h1 class="text-2xl font-bold text-gray-900 mb-6">Workflow de Aprovação</h1>
+                    
+                    <!-- Workflow Stats -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-white overflow-hidden shadow rounded-lg">
+                            <div class="p-5">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <i data-lucide="clock" class="h-6 w-6 text-yellow-600"></i>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt class="text-sm font-medium text-gray-500 truncate">
+                                                Aguardando Análise
+                                            </dt>
+                                            <dd id="workflowPending" class="text-lg font-medium text-gray-900">
+                                                --
+                                            </dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white overflow-hidden shadow rounded-lg">
+                            <div class="p-5">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <i data-lucide="eye" class="h-6 w-6 text-blue-600"></i>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt class="text-sm font-medium text-gray-500 truncate">
+                                                Em Revisão
+                                            </dt>
+                                            <dd id="workflowReview" class="text-lg font-medium text-gray-900">
+                                                --
+                                            </dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white overflow-hidden shadow rounded-lg">
+                            <div class="p-5">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <i data-lucide="check-circle" class="h-6 w-6 text-green-600"></i>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt class="text-sm font-medium text-gray-500 truncate">
+                                                Aprovados
+                                            </dt>
+                                            <dd id="workflowApproved" class="text-lg font-medium text-gray-900">
+                                                --
+                                            </dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white overflow-hidden shadow rounded-lg">
+                            <div class="p-5">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <i data-lucide="send" class="h-6 w-6 text-purple-600"></i>
+                                    </div>
+                                    <div class="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt class="text-sm font-medium text-gray-500 truncate">
+                                                Publicados
+                                            </dt>
+                                            <dd id="workflowPublished" class="text-lg font-medium text-gray-900">
+                                                --
+                                            </dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Workflow Filters -->
+                    <div class="bg-white shadow rounded-lg p-6 mb-6">
+                        <div class="flex flex-wrap items-center gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Estágio</label>
+                                <select id="workflowStageFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Todos</option>
+                                    <option value="received">Recebidos</option>
+                                    <option value="analyzed">Analisados</option>
+                                    <option value="approved">Aprovados</option>
+                                    <option value="prepared">Preparados</option>
+                                    <option value="published">Publicados</option>
+                                    <option value="rejected">Rejeitados</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Prioridade</label>
+                                <select id="workflowPriorityFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Todas</option>
+                                    <option value="1">Alta</option>
+                                    <option value="2">Média</option>
+                                    <option value="3">Baixa</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Responsável</label>
+                                <select id="workflowAssignedFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Todos</option>
+                                    <option value="me">Meus</option>
+                                    <option value="unassigned">Não atribuídos</option>
+                                </select>
+                            </div>
+                            <div class="ml-auto">
+                                <button id="refreshWorkflowButton" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                                    <i data-lucide="refresh-cw" class="h-4 w-4 mr-1 inline"></i>
+                                    Atualizar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Workflow Table -->
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-6 py-4 border-b border-gray-200">
+                            <h2 class="text-lg font-medium text-gray-900">Emails no Workflow</h2>
+                        </div>
+                        <div id="workflowTable" class="overflow-x-auto">
+                            <!-- Workflow table will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configuration Section -->
+            <div id="configSection" class="dashboard-section hidden">
+                <div class="px-4 py-6 sm:px-0">
+                    <h1 class="text-2xl font-bold text-gray-900 mb-6">Configurações do Sistema</h1>
+                    
+                    <!-- Configuration Cards -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- WordPress Configuration -->
+                        <div class="bg-white shadow rounded-lg p-6">
+                            <div class="flex items-center mb-4">
+                                <i data-lucide="globe" class="h-6 w-6 text-blue-600 mr-2"></i>
+                                <h2 class="text-lg font-medium text-gray-900">WordPress</h2>
+                                <span id="wpStatus" class="ml-auto inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    Verificando...
+                                </span>
+                            </div>
+                            <form id="wpConfigForm" class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">URL do Site</label>
+                                    <input type="url" id="wpUrl" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="https://seusite.com.br">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Usuário</label>
+                                    <input type="text" id="wpUsername" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Senha de Aplicação</label>
+                                    <input type="password" id="wpPassword" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <div class="flex space-x-3">
+                                    <button type="button" id="testWpConnection" class="flex-1 bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700">
+                                        Testar
+                                    </button>
+                                    <button type="submit" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
+                                        Salvar
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Gmail Configuration -->
+                        <div class="bg-white shadow rounded-lg p-6">
+                            <div class="flex items-center mb-4">
+                                <i data-lucide="mail" class="h-6 w-6 text-red-600 mr-2"></i>
+                                <h2 class="text-lg font-medium text-gray-900">Gmail</h2>
+                                <span id="gmailStatus" class="ml-auto inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    Verificando...
+                                </span>
+                            </div>
+                            <form id="gmailConfigForm" class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Client ID</label>
+                                    <input type="text" id="gmailClientId" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Client Secret</label>
+                                    <input type="password" id="gmailClientSecret" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <div class="flex space-x-3">
+                                    <button type="submit" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
+                                        Salvar
+                                    </button>
+                                    <button type="button" id="authenticateGmail" class="flex-1 bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700">
+                                        Autenticar
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Gemini AI Configuration -->
+                        <div class="bg-white shadow rounded-lg p-6">
+                            <div class="flex items-center mb-4">
+                                <i data-lucide="brain" class="h-6 w-6 text-purple-600 mr-2"></i>
+                                <h2 class="text-lg font-medium text-gray-900">Gemini AI</h2>
+                                <span id="geminiStatus" class="ml-auto inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    Verificando...
+                                </span>
+                            </div>
+                            <form id="geminiConfigForm" class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+                                    <input type="password" id="geminiApiKey" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Modelo</label>
+                                    <select id="geminiModel" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="gemini-pro">Gemini Pro</option>
+                                        <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                                    </select>
+                                </div>
+                                <div class="flex space-x-3">
+                                    <button type="button" id="testGeminiConnection" class="flex-1 bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700">
+                                        Testar
+                                    </button>
+                                    <button type="submit" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
+                                        Salvar
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Google Data Configuration -->
+                        <div class="bg-white shadow rounded-lg p-6">
+                            <div class="flex items-center mb-4">
+                                <i data-lucide="bar-chart" class="h-6 w-6 text-green-600 mr-2"></i>
+                                <h2 class="text-lg font-medium text-gray-900">Google Data</h2>
+                                <span id="googleDataStatus" class="ml-auto inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    Verificando...
+                                </span>
+                            </div>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Property ID (GA4)</label>
+                                    <input type="text" id="ga4PropertyId" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="123456789">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Site URL (Search Console)</label>
+                                    <input type="url" id="gscSiteUrl" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="https://seusite.com.br">
+                                </div>
+                                <div class="flex space-x-3">
+                                    <button type="button" id="saveGoogleDataConfig" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
+                                        Salvar
+                                    </button>
+                                    <button type="button" id="authenticateGoogleData" class="flex-1 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700">
+                                        Autenticar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Content Section -->
             <div id="contentSection" class="dashboard-section hidden">
                 <div class="px-4 py-6 sm:px-0">
                     <h1 class="text-2xl font-bold text-gray-900 mb-6">Gestão de Conteúdo</h1>
                     
                     <div class="bg-white shadow rounded-lg p-6">
-                        <h2 class="text-lg font-medium text-gray-900 mb-4">Emails e Publicações</h2>
+                        <h2 class="text-lg font-medium text-gray-900 mb-4">Funcionalidades Futuras</h2>
                         <div id="contentManagement">
-                            <p class="text-gray-500">Funcionalidades de gestão de conteúdo em desenvolvimento...</p>
+                            <p class="text-gray-500">Esta seção conterá funcionalidades adicionais de gestão de conteúdo...</p>
                         </div>
                     </div>
                 </div>
@@ -468,6 +854,30 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Email Details Modal -->
+    <div id="emailDetailsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">Detalhes do Email</h3>
+                    <button id="closeEmailModal" class="text-gray-400 hover:text-gray-600">
+                        <i data-lucide="x" class="h-6 w-6"></i>
+                    </button>
+                </div>
+                
+                <div id="emailDetailsContent" class="space-y-6">
+                    <!-- Conteúdo será preenchido dinamicamente -->
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                    <button id="closeEmailModalBtn" class="bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400">
+                        Fechar
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Setup Admin Modal -->
@@ -501,9 +911,11 @@
     </div>
 
     <!-- JavaScript -->
-    <script src="static/js/auth.js"></script>
-    <script src="static/js/email-workflow.js"></script>
-    <script src="static/js/dashboard.js"></script>
-    <script src="static/js/app.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/email-workflow.js"></script>
+    <script src="js/posts.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html> 

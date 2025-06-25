@@ -13,15 +13,32 @@ from datetime import datetime
 import httpx
 import os
 
-from .config import settings
-from .database import db
-from .modules.ai_processor import ai_processor
-from .modules.wordpress_publisher import wp_publisher
-from .modules.gmail_client import gmail_client
-from .modules.realtime_notifications import realtime_manager
-from .modules.google_data_connector import google_connector
-from .modules.auth_manager import auth_manager
-from .modules.email_workflow import email_workflow
+try:
+    # Tentar imports relativos primeiro (produção)
+    from .config import settings
+    from .database import db
+    from .modules.ai_processor import ai_processor
+    from .modules.wordpress_publisher import wp_publisher
+    from .modules.gmail_client import gmail_client
+    from .modules.realtime_notifications import realtime_manager
+    from .modules.google_data_connector import google_connector
+    from .modules.auth_manager import auth_manager
+    from .modules.email_workflow import email_workflow
+except ImportError:
+    # Fallback para imports absolutos (desenvolvimento)
+    import sys
+    import os
+    sys.path.append(os.path.dirname(__file__))
+    
+    from config import settings
+    from database import db
+    from modules.ai_processor import ai_processor
+    from modules.wordpress_publisher import wp_publisher
+    from modules.gmail_client import gmail_client
+    from modules.realtime_notifications import realtime_manager
+    from modules.google_data_connector import google_connector
+    from modules.auth_manager import auth_manager
+    from modules.email_workflow import email_workflow
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)

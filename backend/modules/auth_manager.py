@@ -8,14 +8,19 @@ from datetime import datetime, timedelta
 import jwt
 from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import os
 
 # Supabase imports
 from supabase import create_client, Client
 from gotrue.errors import AuthApiError
 
-# Internal imports
-from ..config import settings
-from ..database import db
+# Internal imports com fallback para desenvolvimento e produção
+try:
+    from ..config import settings
+    from ..database import db
+except ImportError:
+    from config import settings
+    from database import db
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +34,30 @@ class AuthManager:
     """
     
     def __init__(self):
-        self.supabase: Client = create_client(
-            settings.SUPABASE_URL,
-            settings.secure_supabase_service_key or settings.SUPABASE_SERVICE_KEY
+        # Obter service key com prioridade: env var > secure config > fallback
+        service_key = (
+            os.getenv('SUPABASE_SERVICE_KEY') or 
+            settings.secure_supabase_service_key or 
+            settings.SUPABASE_SERVICE_KEY
         )
+        
+        if not service_key:
+            logger.error("❌ SUPABASE_SERVICE_KEY não encontrada!")
+            raise ValueError("Service Key do Supabase é obrigatória")
+        
+        # Log da configuração (sem expor a chave completa)
+        logger.info(f"🔐 Inicializando Supabase Auth com service key: {service_key[:20]}...")
+        
+        try:
+            self.supabase: Client = create_client(
+                settings.SUPABASE_URL,
+                service_key
+            )
+            logger.info("✅ Supabase Auth Manager inicializado com sucesso")
+        except Exception as e:
+            logger.error(f"❌ Erro ao inicializar Supabase: {e}")
+            raise
+        
         self.roles = {
             'admin': ['*'],  # Acesso total
             'editor': ['content', 'analytics', 'wordpress'],  # Gestão de conteúdo
@@ -101,29 +126,55 @@ class AuthManager:
     def list_users(self) -> List[Dict]:
         """Lista todos os usuários do sistema"""
         try:
+            logger.info("📋 Iniciando listagem de usuários...")
+            
+            # Verificar se a service key está configurada
+            auth_headers = self.supabase.options.headers
+            if not auth_headers.get('Authorization'):
+                logger.error("❌ Service key não configurada no cliente Supabase")
+                return []
+            
+            # Fazer chamada para a API Admin
             response = self.supabase.auth.admin.list_users()
+            logger.info(f"📡 Resposta da API Supabase recebida: {type(response)}")
             
             users = []
             # A resposta pode ser um objeto com atributo 'users' ou uma lista direta
             user_list = response.users if hasattr(response, 'users') else response
             
-            for user in user_list:
-                user_data = {
-                    "id": user.id,
-                    "email": user.email,
-                    "role": user.user_metadata.get("role", "viewer") if user.user_metadata else "viewer",
-                    "created_at": user.created_at,
-                    "last_sign_in": user.last_sign_in_at,
-                    "email_confirmed": user.email_confirmed_at is not None,
-                    "is_active": not user.banned_until if hasattr(user, 'banned_until') else True
-                }
-                users.append(user_data)
+            if not user_list:
+                logger.warning("⚠️ Nenhum usuário encontrado na resposta")
+                return []
             
-            logger.info(f"📋 Listados {len(users)} usuários")
+            for user in user_list:
+                try:
+                    user_data = {
+                        "id": user.id,
+                        "email": user.email,
+                        "role": user.user_metadata.get("role", "viewer") if user.user_metadata else "viewer",
+                        "created_at": user.created_at,
+                        "last_sign_in": user.last_sign_in_at,
+                        "email_confirmed": user.email_confirmed_at is not None,
+                        "is_active": not user.banned_until if hasattr(user, 'banned_until') else True
+                    }
+                    users.append(user_data)
+                except Exception as e:
+                    logger.error(f"❌ Erro ao processar usuário {getattr(user, 'id', 'unknown')}: {e}")
+                    continue
+            
+            logger.info(f"✅ Listados {len(users)} usuários com sucesso")
             return users
             
+        except AuthApiError as e:
+            logger.error(f"❌ Erro da API Supabase ao listar usuários: {e}")
+            logger.error(f"Status: {getattr(e, 'status', 'unknown')}")
+            logger.error(f"Message: {getattr(e, 'message', str(e))}")
+            return []
         except Exception as e:
-            logger.error(f"Erro ao listar usuários: {e}")
+            logger.error(f"❌ Erro geral ao listar usuários: {e}")
+            logger.error(f"Tipo do erro: {type(e).__name__}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return []
     
     def update_user_role(self, user_id: str, new_role: str) -> Dict:

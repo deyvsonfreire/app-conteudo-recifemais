@@ -18,7 +18,11 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from ..config import settings
+# Import com fallback para desenvolvimento e produção
+try:
+    from ..config import settings
+except ImportError:
+    from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +102,10 @@ class GmailClient:
             flow.fetch_token(code=authorization_code)
             
             # Salvar credenciais no banco de dados
-            from ..database import db
+            try:
+                from ..database import db
+            except ImportError:
+                from database import db
             credentials_data = {
                 "token": flow.credentials.token,
                 "refresh_token": flow.credentials.refresh_token,
@@ -125,7 +132,10 @@ class GmailClient:
     def load_credentials(self) -> bool:
         """Carrega credenciais salvas (prioriza banco de dados)"""
         try:
-            from ..database import db
+            try:
+                from ..database import db
+            except ImportError:
+                from database import db
             from google.oauth2.credentials import Credentials
             from datetime import datetime
             

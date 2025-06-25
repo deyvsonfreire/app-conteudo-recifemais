@@ -2,9 +2,15 @@
 Processador de IA usando Google Gemini
 """
 import google.generativeai as genai
-from ..config import settings
-from ..database import db
 from typing import Dict, Any, List, Optional
+
+# Import com fallback para desenvolvimento e produção
+try:
+    from ..config import settings
+    from ..database import db
+except ImportError:
+    from config import settings
+    from database import db
 import logging
 import hashlib
 import json

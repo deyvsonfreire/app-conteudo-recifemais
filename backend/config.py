@@ -62,6 +62,7 @@ class Settings(BaseSettings):
             Valor da credencial ou None
         """
         try:
+            # Import lazy para evitar dependência circular
             from .secure_config import get_secure_config
             
             # Tentar buscar do banco primeiro
@@ -74,7 +75,7 @@ class Settings(BaseSettings):
             return env_value
             
         except Exception:
-            # Se houver erro, usar valor do .env
+            # Se houver erro (circular import, etc), usar valor do .env
             return getattr(self, key.upper(), None)
     
     @property

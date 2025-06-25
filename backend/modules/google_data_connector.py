@@ -15,8 +15,12 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 # Internal imports
-from ..config import settings
-from ..database import db
+try:
+    from ..config import settings
+    from ..database import db
+except ImportError:
+    from config import settings
+    from database import db
 
 logger = logging.getLogger(__name__)
 

@@ -1,113 +1,79 @@
 """
-Gerenciador de configurações seguras armazenadas no banco de dados
+Módulo para configurações seguras sem dependência circular
 """
-import logging
-from typing import Optional, Dict, Any
-from functools import lru_cache
+import os
+from typing import Optional
 
-logger = logging.getLogger(__name__)
-
-class SecureConfigManager:
-    """Gerencia configurações seguras do banco de dados com cache"""
+def get_secure_config(key: str) -> Optional[str]:
+    """
+    Busca configuração segura do banco de dados
     
-    def __init__(self):
-        self._cache: Dict[str, str] = {}
-        self._db = None
-    
-    @property
-    def db(self):
-        """Lazy loading do database manager"""
-        if self._db is None:
-            from .database import db
-            self._db = db
-        return self._db
-    
-    def get(self, key: str, fallback: Optional[str] = None) -> Optional[str]:
-        """
-        Busca configuração segura com cache
+    Args:
+        key: Nome da chave da configuração
         
-        Args:
-            key: Chave da configuração
-            fallback: Valor padrão se não encontrar
-            
-        Returns:
-            Valor da configuração ou fallback
-        """
-        try:
-            # Verificar cache primeiro
-            if key in self._cache:
-                return self._cache[key]
-            
-            # Buscar no banco
-            value = self.db.get_secure_config(key)
-            
-            if value:
-                # Adicionar ao cache
-                self._cache[key] = value
-                return value
-            
-            return fallback
-            
-        except Exception as e:
-            logger.error(f"Erro ao buscar configuração segura '{key}': {e}")
-            return fallback
-    
-    def set(self, key: str, value: str, description: str = "") -> bool:
-        """
-        Define configuração segura
+    Returns:
+        Valor da configuração ou None
+    """
+    try:
+        # Import lazy para evitar dependência circular
+        from supabase import create_client
         
-        Args:
-            key: Chave da configuração
-            value: Valor da configuração
-            description: Descrição da configuração
+        # Usar variáveis de ambiente diretamente para evitar circular import
+        supabase_url = os.getenv("SUPABASE_URL", "https://aoyrpadrrsckxbuadcnf.supabase.co")
+        supabase_key = os.getenv("SUPABASE_SERVICE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFveXJwYWRycnNja3hidWFkY25mIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDgwNjkxOSwiZXhwIjoyMDY2MzgyOTE5fQ.EWx1wZZutcONrJYSzF2r1mvuav0KilXuPOOoWJYjAyc")
+        
+        if not supabase_key:
+            return None
             
-        Returns:
-            True se salvou com sucesso
-        """
-        try:
-            result = self.db.set_secure_config(key, value, description)
-            
-            if result:
-                # Atualizar cache
-                self._cache[key] = value
-                logger.info(f"Configuração segura '{key}' definida com sucesso")
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"Erro ao definir configuração segura '{key}': {e}")
-            return False
-    
-    def clear_cache(self):
-        """Limpa o cache de configurações"""
-        self._cache.clear()
-        logger.info("Cache de configurações seguras limpo")
-    
-    def get_all_keys(self) -> list:
-        """Retorna todas as chaves de configuração disponíveis"""
-        try:
-            # Esta funcionalidade pode ser implementada se necessário
-            # Por enquanto, retorna as chaves conhecidas
-            return [
-                "wordpress_username",
-                "wordpress_password", 
-                "gmail_client_id",
-                "gmail_client_secret",
-                "google_ai_api_key",
-                "supabase_service_key"
-            ]
-        except Exception as e:
-            logger.error(f"Erro ao listar chaves de configuração: {e}")
-            return []
-
-# Instância global
-secure_config = SecureConfigManager()
-
-# Funções de conveniência
-def get_secure_config(key: str, fallback: Optional[str] = None) -> Optional[str]:
-    """Função de conveniência para buscar configuração segura"""
-    return secure_config.get(key, fallback)
+        client = create_client(supabase_url, supabase_key)
+        
+        result = client.table("secure_config").select("encrypted_value").eq("key", key).execute()
+        
+        if result.data:
+            return result.data[0]["encrypted_value"]
+        
+        return None
+        
+    except Exception:
+        # Se houver qualquer erro, retornar None
+        # Isso permite que o sistema funcione mesmo sem o banco
+        return None
 
 def set_secure_config(key: str, value: str, description: str = "") -> bool:
-    """Função de conveniência para definir configuração segura"""
-    return secure_config.set(key, value, description) 
+    """
+    Define configuração segura no banco de dados
+    
+    Args:
+        key: Nome da chave
+        value: Valor a ser armazenado
+        description: Descrição da configuração
+        
+    Returns:
+        True se sucesso, False caso contrário
+    """
+    try:
+        # Import lazy para evitar dependência circular
+        from supabase import create_client
+        
+        # Usar variáveis de ambiente diretamente
+        supabase_url = os.getenv("SUPABASE_URL", "https://aoyrpadrrsckxbuadcnf.supabase.co")
+        supabase_key = os.getenv("SUPABASE_SERVICE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFveXJwYWRycnNja3hidWFkY25mIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDgwNjkxOSwiZXhwIjoyMDY2MzgyOTE5fQ.EWx1wZZutcONrJYSzF2r1mvuav0KilXuPOOoWJYjAyc")
+        
+        if not supabase_key:
+            return False
+            
+        client = create_client(supabase_url, supabase_key)
+        
+        data = {
+            "key": key,
+            "encrypted_value": value,
+            "description": description,
+            "updated_at": "now()"
+        }
+        
+        result = client.table("secure_config").upsert(data).execute()
+        return len(result.data) > 0
+        
+    except Exception:
+        # Se houver qualquer erro, retornar False
+        return False 

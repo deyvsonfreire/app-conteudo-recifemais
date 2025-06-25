@@ -2,9 +2,14 @@
 Conexão e utilitários do Supabase
 """
 from supabase import create_client, Client
-from .config import settings
 from typing import Optional, Dict, Any, List
 import logging
+
+# Import com fallback para desenvolvimento e produção
+try:
+    from .config import settings
+except ImportError:
+    from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -199,23 +204,35 @@ class SupabaseManager:
         except Exception as e:
             logger.error(f"Erro ao recuperar credenciais Gmail: {e}")
             return None
-    
+
     def upgrade_to_secure_credentials(self):
-        """
-        Migra para usar credenciais seguras do banco após inicialização
-        Este método é chamado após o sistema estar funcionando
-        """
+        """Migra credenciais do .env para o banco de dados"""
         try:
-            # Tentar buscar service key do banco
-            secure_key = self.get_secure_config("supabase_service_key")
-            if secure_key and secure_key != settings.SUPABASE_SERVICE_KEY:
-                # Recriar cliente com chave segura
-                self.client = create_client(settings.SUPABASE_URL, secure_key)
-                logger.info("Migrado para credenciais seguras do banco de dados")
-                return True
+            # Migrar credenciais sensíveis do .env para o banco
+            credentials_to_migrate = [
+                "google_ai_api_key",
+                "gmail_client_id", 
+                "gmail_client_secret",
+                "wordpress_username",
+                "wordpress_password"
+            ]
+            
+            migrated = 0
+            for cred_key in credentials_to_migrate:
+                # Buscar valor do .env
+                env_value = getattr(settings, cred_key.upper(), None)
+                if env_value:
+                    # Salvar no banco
+                    if self.set_secure_config(cred_key, env_value, f"Migrado do .env - {cred_key}"):
+                        migrated += 1
+                        logger.info(f"Credencial {cred_key} migrada com sucesso")
+            
+            logger.info(f"Migração concluída: {migrated} credenciais migradas")
+            return migrated > 0
+            
         except Exception as e:
-            logger.warning(f"Não foi possível migrar para credenciais seguras: {e}")
-        return False
+            logger.error(f"Erro na migração de credenciais: {e}")
+            return False
 
 # Instância global
 db = SupabaseManager() 

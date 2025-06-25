@@ -516,8 +516,215 @@ class EmailWorkflowManager {
     // ==========================================
     
     showEmailDetails(email) {
-        // Implementar modal de detalhes do email
-        alert(`Email: ${email.subject}\nStatus: ${email.workflow_stage}\nDe: ${email.sender}`);
+        const modal = document.getElementById('emailDetailsModal');
+        const content = document.getElementById('emailDetailsContent');
+        
+        if (!modal || !content) return;
+
+        // Formatar dados de análise IA se existir
+        let aiAnalysisHtml = '';
+        if (email.ai_analysis) {
+            try {
+                const analysis = typeof email.ai_analysis === 'string' ? 
+                    JSON.parse(email.ai_analysis) : email.ai_analysis;
+                
+                aiAnalysisHtml = `
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">Análise da IA</h3>
+                        <div class="bg-blue-50 rounded-lg p-4 space-y-3">
+                            ${analysis.title ? `<div><span class="font-medium">Título Sugerido:</span> ${analysis.title}</div>` : ''}
+                            ${analysis.summary ? `<div><span class="font-medium">Resumo:</span> ${analysis.summary}</div>` : ''}
+                            ${analysis.category ? `<div><span class="font-medium">Categoria:</span> ${analysis.category}</div>` : ''}
+                            ${analysis.tags ? `<div><span class="font-medium">Tags:</span> ${analysis.tags}</div>` : ''}
+                            ${analysis.content ? `
+                                <div>
+                                    <span class="font-medium">Conteúdo Processado:</span>
+                                    <div class="mt-2 bg-white rounded p-3 max-h-48 overflow-y-auto">
+                                        ${analysis.content}
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            } catch (e) {
+                aiAnalysisHtml = `
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">Análise da IA</h3>
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <pre class="text-sm">${email.ai_analysis}</pre>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        content.innerHTML = `
+            <div class="space-y-6">
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Informações do Email</h3>
+                    <div class="bg-gray-50 rounded-lg p-4 space-y-2">
+                        <div class="flex justify-between">
+                            <span class="font-medium">ID:</span>
+                            <span>${email.id}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-medium">Status:</span>
+                            <span>${this.getStatusBadge(email.workflow_stage)}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-medium">Prioridade:</span>
+                            <span>${this.getPriorityBadge(email.priority)}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-medium">Data de Recebimento:</span>
+                            <span>${this.formatDate(email.received_at)}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-medium">Tipo:</span>
+                            <span>${email.is_auto_process ? 'Processamento Automático' : 'Email Antigo'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Remetente</h3>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <p class="text-gray-900">${email.sender_name || 'Nome não disponível'}</p>
+                        <p class="text-gray-600">${email.sender_email}</p>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Assunto</h3>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <p class="text-gray-900">${email.subject}</p>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Conteúdo Original</h3>
+                    <div class="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                        <div class="prose max-w-none">
+                            ${email.body || 'Conteúdo não disponível'}
+                        </div>
+                    </div>
+                </div>
+
+                ${aiAnalysisHtml}
+
+                <div class="flex justify-center space-x-3 pt-4 border-t">
+                    ${this.getModalActionButtons(email)}
+                </div>
+            </div>
+        `;
+
+        modal.classList.remove('hidden');
+        lucide.createIcons();
+
+        // Bind modal close events
+        const closeBtn = document.getElementById('closeEmailModal');
+        const closeModalBtn = document.getElementById('closeEmailModalBtn');
+        
+        const closeModal = () => {
+            modal.classList.add('hidden');
+        };
+
+        if (closeBtn) closeBtn.onclick = closeModal;
+        if (closeModalBtn) closeModalBtn.onclick = closeModal;
+        
+        // Close on outside click
+        modal.onclick = (e) => {
+            if (e.target === modal) closeModal();
+        };
+    }
+
+    getModalActionButtons(email) {
+        const stage = email.workflow_stage;
+        let buttons = [];
+
+        switch (stage) {
+            case 'received':
+                buttons.push(`
+                    <button onclick="emailWorkflow.analyzeEmail(${email.id}); document.getElementById('emailDetailsModal').classList.add('hidden');" 
+                            class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                        <i data-lucide="brain" class="h-4 w-4 mr-1 inline"></i>
+                        Analisar com IA
+                    </button>
+                `);
+                break;
+            case 'analyzed':
+                buttons.push(`
+                    <button onclick="emailWorkflow.approveContent(${email.id}); document.getElementById('emailDetailsModal').classList.add('hidden');" 
+                            class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
+                        <i data-lucide="check" class="h-4 w-4 mr-1 inline"></i>
+                        Aprovar Conteúdo
+                    </button>
+                `);
+                break;
+            case 'approved_content':
+                buttons.push(`
+                    <button onclick="emailWorkflow.preparePublish(${email.id}); document.getElementById('emailDetailsModal').classList.add('hidden');" 
+                            class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">
+                        <i data-lucide="edit" class="h-4 w-4 mr-1 inline"></i>
+                        Preparar Publicação
+                    </button>
+                `);
+                break;
+            case 'ready_publish':
+                buttons.push(`
+                    <button onclick="emailWorkflow.publishEmail(${email.id}); document.getElementById('emailDetailsModal').classList.add('hidden');" 
+                            class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
+                        <i data-lucide="send" class="h-4 w-4 mr-1 inline"></i>
+                        Publicar no WordPress
+                    </button>
+                `);
+                break;
+        }
+
+        // Botão de rejeição (exceto para emails publicados)
+        if (stage !== 'published') {
+            buttons.push(`
+                <button onclick="emailWorkflow.rejectEmail(${email.id}); document.getElementById('emailDetailsModal').classList.add('hidden');" 
+                        class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700">
+                    <i data-lucide="x" class="h-4 w-4 mr-1 inline"></i>
+                    Rejeitar
+                </button>
+            `);
+        }
+
+        return buttons.join('');
+    }
+
+    getPriorityBadge(priority) {
+        const badges = {
+            1: 'bg-red-100 text-red-800',
+            2: 'bg-yellow-100 text-yellow-800',
+            3: 'bg-green-100 text-green-800'
+        };
+
+        const labels = {
+            1: 'Alta',
+            2: 'Média', 
+            3: 'Baixa'
+        };
+
+        const badgeClass = badges[priority] || 'bg-gray-100 text-gray-800';
+        const label = labels[priority] || 'N/A';
+
+        return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badgeClass}">${label}</span>`;
+    }
+
+    formatDate(dateString) {
+        if (!dateString) return 'N/A';
+        const date = new Date(dateString);
+        return date.toLocaleString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
     }
     
     showSuccess(message) {

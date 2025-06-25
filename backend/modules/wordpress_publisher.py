@@ -3,8 +3,13 @@ Publicador de conteúdo para WordPress
 """
 import requests
 from requests.auth import HTTPBasicAuth
-from ..config import settings
 from typing import Dict, Any, Optional, List
+
+# Import com fallback para desenvolvimento e produção
+try:
+    from ..config import settings
+except ImportError:
+    from config import settings
 import logging
 import base64
 

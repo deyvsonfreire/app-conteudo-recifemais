@@ -133,6 +133,15 @@ class DashboardManager {
             case 'emails':
                 await this.loadEmailsData();
                 break;
+            case 'posts':
+                await this.loadPostsData();
+                break;
+            case 'workflow':
+                await this.loadWorkflowData();
+                break;
+            case 'config':
+                await this.loadConfigData();
+                break;
             case 'content':
                 await this.loadContentData();
                 break;
@@ -242,9 +251,45 @@ class DashboardManager {
     async loadEmailsData() {
         // Inicializar o workflow de emails
         if (typeof emailWorkflow !== 'undefined') {
-            emailWorkflow.init();
+            await emailWorkflow.loadWorkflowStats();
+            await emailWorkflow.loadEmailsList();
         }
-        console.log('📧 Carregando dados de emails...');
+        console.log('📧 Dados de emails carregados');
+    }
+
+    async loadPostsData() {
+        // Carregar dados de posts
+        if (typeof postsManager !== 'undefined') {
+            await postsManager.loadPosts();
+        }
+        console.log('📝 Dados de posts carregados');
+    }
+
+    async loadConfigData() {
+        // Carregar configurações
+        if (typeof configManager !== 'undefined') {
+            await configManager.loadConfigurations();
+            await configManager.checkServiceStatus();
+        }
+        console.log('⚙️ Configurações carregadas');
+    }
+    
+    async loadWorkflowData() {
+        // Carregar dados do workflow
+        if (typeof emailWorkflow !== 'undefined') {
+            await emailWorkflow.loadWorkflowStats();
+            await emailWorkflow.loadEmailsList('workflow');
+        }
+        console.log('📋 Dados do workflow carregados');
+    }
+    
+    async loadWorkflowData() {
+        // Carregar dados do workflow
+        if (typeof emailWorkflow !== 'undefined') {
+            await emailWorkflow.loadWorkflowStats();
+            await emailWorkflow.loadEmailsList('workflow');
+        }
+        console.log('📋 Dados do workflow carregados');
     }
     
     async loadContentData() {
