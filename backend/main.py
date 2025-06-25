@@ -4,7 +4,7 @@ Aplicação FastAPI principal - RecifeMais Conteúdo
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 import logging
@@ -68,7 +68,40 @@ if not os.path.exists(frontend_path):
     frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
 
 if os.path.exists(frontend_path):
+    # Servir arquivos JS diretamente
+    js_path = os.path.join(frontend_path, "js")
+    if os.path.exists(js_path):
+        app.mount("/js", StaticFiles(directory=js_path), name="js")
+    
+    # Servir arquivos estáticos gerais
     app.mount("/static", StaticFiles(directory=frontend_path), name="static")
+
+# Endpoint específico para arquivos JS com CORS
+@app.get("/js/{filename}")
+async def serve_js_file(filename: str):
+    """Serve arquivos JavaScript com CORS apropriado"""
+    frontend_path = os.path.join("/app", "frontend")
+    if not os.path.exists(frontend_path):
+        frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+    
+    js_file_path = os.path.join(frontend_path, "js", filename)
+    
+    if os.path.exists(js_file_path) and filename.endswith('.js'):
+        with open(js_file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        return Response(
+            content=content,
+            media_type="application/javascript",
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET",
+                "Access-Control-Allow-Headers": "*",
+                "Cache-Control": "no-cache"
+            }
+        )
+    else:
+        raise HTTPException(status_code=404, detail="Arquivo não encontrado")
 
 # Modelos Pydantic
 class EmailInput(BaseModel):
