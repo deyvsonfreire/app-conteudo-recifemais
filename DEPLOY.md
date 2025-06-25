@@ -1,6 +1,32 @@
 # 🚀 Deploy no EasyPanel - RecifeMais Conteúdo
 
-## 📋 Pré-requisitos
+## 🚨 SOLUÇÃO RÁPIDA - Erro de Import (wordpress_publisher)
+
+**Se você está vendo este erro:**
+```
+ImportError: cannot import name 'wordpress_publisher' from 'backend.modules.wordpress_publisher'
+```
+
+**Execute este comando no servidor:**
+```bash
+# Método 1: Script automático (RECOMENDADO)
+./scripts/force_deploy.sh
+
+# Método 2: Manual
+docker-compose -f docker-compose.prod.yml down
+git reset --hard origin/main
+git pull origin main
+docker-compose -f docker-compose.prod.yml build --no-cache
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+**Verificar se funcionou:**
+```bash
+curl http://localhost:8001/health
+# Deve retornar status sem erros de import
+```
+
+## �� Pré-requisitos
 
 - ✅ Servidor com EasyPanel instalado
 - ✅ Docker e Docker Compose funcionando
