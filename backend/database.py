@@ -10,9 +10,14 @@ logger = logging.getLogger(__name__)
 
 class SupabaseManager:
     def __init__(self):
+        # Usar credencial segura com fallback
+        service_key = settings.secure_supabase_service_key
+        if not service_key:
+            raise ValueError("SUPABASE_SERVICE_KEY não encontrada nem no banco nem no .env")
+            
         self.client: Client = create_client(
             settings.SUPABASE_URL,
-            settings.SUPABASE_SERVICE_KEY
+            service_key
         )
     
     def insert_email_cache(self, email_data: Dict[str, Any]) -> Optional[Dict]:
