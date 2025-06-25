@@ -64,7 +64,13 @@ async def root():
     return {
         "message": f"🚀 {settings.APP_NAME} v{settings.APP_VERSION}",
         "status": "active",
-        "description": "Sistema de automação inteligente de conteúdo"
+        "description": "Sistema de automação inteligente de conteúdo",
+        "endpoints": {
+            "health": "/health",
+            "gmail_auth": "/auth/gmail/redirect",
+            "gmail_status": "/gmail/status",
+            "docs": "/docs"
+        }
     }
 
 @app.get("/health")
@@ -127,13 +133,51 @@ async def gmail_auth():
         logger.error(f"Erro na autenticação Gmail: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/auth/gmail/redirect")
+async def gmail_auth_redirect():
+    """Redireciona automaticamente para autenticação Gmail"""
+    try:
+        auth_url = gmail_client.get_authorization_url()
+        if auth_url:
+            from fastapi.responses import RedirectResponse
+            return RedirectResponse(url=auth_url)
+        else:
+            raise HTTPException(status_code=500, detail="Erro ao gerar URL de autorização")
+    except Exception as e:
+        logger.error(f"Erro na autenticação Gmail: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/auth/callback")
 async def gmail_callback(code: str):
     """Callback OAuth Gmail"""
     try:
         success = gmail_client.handle_oauth_callback(code)
         if success:
-            return {"message": "Autenticação Gmail concluída com sucesso!"}
+            from fastapi.responses import HTMLResponse
+            html_content = """
+            <html>
+                <head>
+                    <title>RecifeMais - Autenticação Gmail</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f0f2f5; }
+                        .container { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                        .success { color: #28a745; font-size: 24px; margin-bottom: 20px; }
+                        .info { color: #6c757d; margin-bottom: 20px; }
+                        .btn { background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h1>🎉 Autenticação Gmail Concluída!</h1>
+                        <div class="success">✅ Sucesso!</div>
+                        <div class="info">O RecifeMais agora pode acessar seus emails de assessoria.</div>
+                        <div class="info">Você pode fechar esta janela e retornar ao sistema.</div>
+                        <a href="/gmail/status" class="btn">Verificar Status</a>
+                    </div>
+                </body>
+            </html>
+            """
+            return HTMLResponse(content=html_content)
         else:
             raise HTTPException(status_code=400, detail="Erro no processo de autenticação")
     except Exception as e:
