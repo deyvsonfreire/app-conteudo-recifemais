@@ -17,6 +17,7 @@ from .modules.wordpress_publisher import wp_publisher
 from .modules.gmail_client import gmail_client
 from .modules.realtime_notifications import realtime_manager
 from .modules.google_data_connector import google_connector
+from .modules.auth_manager import auth_manager
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -58,6 +59,27 @@ class ContentData(BaseModel):
     categoria: Optional[str] = None
     meta_descricao: Optional[str] = None
     tags: Optional[List[str]] = None
+
+# ==========================================
+# AUTH MODELS
+# ==========================================
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class CreateUserRequest(BaseModel):
+    email: str
+    password: str
+    role: str = "viewer"
+    metadata: Optional[Dict] = None
+
+class UpdateUserRoleRequest(BaseModel):
+    user_id: str
+    new_role: str
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
 
 # No início do arquivo, após os imports, adicionar função helper
 def get_service_key():
@@ -124,6 +146,14 @@ async def health_check():
     except Exception as e:
         logger.error(f"Erro no health check Google Data: {e}")
         checks["google_data"] = False
+    
+    # Testar Auth Manager
+    try:
+        auth_stats = auth_manager.get_auth_stats()
+        checks["auth"] = auth_stats.get("total_users", 0) > 0
+    except Exception as e:
+        logger.error(f"Erro no health check Auth: {e}")
+        checks["auth"] = False
     
     all_healthy = all(checks.values())
     
@@ -476,7 +506,7 @@ async def test_email_processing():
     return await process_email(test_email, background_tasks)
 
 @app.get("/admin/secure-config")
-async def list_secure_configs():
+async def list_secure_configs(current_user: Dict = Depends(auth_manager.require_admin())):
     """Lista configurações seguras (apenas chaves, não valores)"""
     try:
         from .secure_config import secure_config
@@ -498,7 +528,12 @@ async def list_secure_configs():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/admin/secure-config/{key}")
-async def set_secure_config_endpoint(key: str, value: str, description: str = ""):
+async def set_secure_config_endpoint(
+    key: str, 
+    value: str, 
+    description: str = "",
+    current_user: Dict = Depends(auth_manager.require_admin())
+):
     """Define configuração segura"""
     try:
         from .secure_config import secure_config
@@ -1021,7 +1056,10 @@ async def get_content_insights(days_back: int = 30):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/admin/google-data/configure")
-async def configure_google_data(config_data: dict):
+async def configure_google_data(
+    config_data: dict,
+    current_user: Dict = Depends(auth_manager.require_permission("analytics"))
+):
     """Configura parâmetros do Google Data (GA4 Property ID, etc.)"""
     try:
         updated_configs = []
@@ -1134,6 +1172,198 @@ async def get_google_data_dashboard(days_back: int = 30):
     except Exception as e:
         logger.error(f"Erro ao gerar dashboard Google Data: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# ==========================================
+# AUTHENTICATION ENDPOINTS
+# ==========================================
+
+@app.post("/auth/login")
+async def login(login_data: LoginRequest):
+    """Autentica usuário e retorna token JWT"""
+    try:
+        result = auth_manager.authenticate_user(
+            email=login_data.email,
+            password=login_data.password
+        )
+        
+        if result["success"]:
+            return result
+        else:
+            raise HTTPException(
+                status_code=401,
+                detail=result.get("message", "Credenciais inválidas")
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro no login: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno de autenticação")
+
+@app.post("/auth/refresh")
+async def refresh_token(refresh_data: RefreshTokenRequest):
+    """Renova token de acesso"""
+    try:
+        result = auth_manager.refresh_token(refresh_data.refresh_token)
+        
+        if result["success"]:
+            return result
+        else:
+            raise HTTPException(status_code=401, detail="Token de refresh inválido")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao renovar token: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao renovar token")
+
+@app.post("/auth/logout")
+async def logout(current_user: Dict = Depends(auth_manager.get_current_user)):
+    """Faz logout do usuário atual"""
+    try:
+        # O token está nas credenciais, mas para simplificar vamos apenas retornar sucesso
+        # O frontend deve descartar o token localmente
+        logger.info(f"🔒 Logout: {current_user.get('email')}")
+        
+        return {
+            "success": True,
+            "message": "Logout realizado com sucesso"
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro no logout: {e}")
+        raise HTTPException(status_code=500, detail="Erro no logout")
+
+@app.get("/auth/me")
+async def get_current_user_info(current_user: Dict = Depends(auth_manager.get_current_user)):
+    """Retorna informações do usuário autenticado"""
+    return {
+        "user": current_user,
+        "authenticated": True,
+        "timestamp": datetime.now().isoformat()
+    }
+
+# ==========================================
+# USER MANAGEMENT ENDPOINTS (ADMIN ONLY)
+# ==========================================
+
+@app.get("/admin/users")
+async def list_users(current_user: Dict = Depends(auth_manager.require_admin())):
+    """Lista todos os usuários do sistema (Admin apenas)"""
+    try:
+        users = auth_manager.list_users()
+        return {
+            "users": users,
+            "total": len(users)
+        }
+    except Exception as e:
+        logger.error(f"Erro ao listar usuários: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao listar usuários")
+
+@app.post("/admin/users")
+async def create_user(
+    user_data: CreateUserRequest,
+    current_user: Dict = Depends(auth_manager.require_admin())
+):
+    """Cria novo usuário (Admin apenas)"""
+    try:
+        result = auth_manager.create_user(
+            email=user_data.email,
+            password=user_data.password,
+            role=user_data.role,
+            metadata=user_data.metadata
+        )
+        
+        if result["success"]:
+            return result
+        else:
+            raise HTTPException(status_code=400, detail=result.get("message", "Erro ao criar usuário"))
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao criar usuário: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno ao criar usuário")
+
+@app.put("/admin/users/role")
+async def update_user_role(
+    update_data: UpdateUserRoleRequest,
+    current_user: Dict = Depends(auth_manager.require_admin())
+):
+    """Atualiza role de um usuário (Admin apenas)"""
+    try:
+        result = auth_manager.update_user_role(
+            user_id=update_data.user_id,
+            new_role=update_data.new_role
+        )
+        
+        if result["success"]:
+            return result
+        else:
+            raise HTTPException(status_code=400, detail=result.get("error", "Erro ao atualizar role"))
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao atualizar role: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao atualizar role")
+
+@app.delete("/admin/users/{user_id}")
+async def delete_user(
+    user_id: str,
+    current_user: Dict = Depends(auth_manager.require_admin())
+):
+    """Remove um usuário (Admin apenas)"""
+    try:
+        # Não permitir que admin delete a si mesmo
+        if user_id == current_user.get("user_id"):
+            raise HTTPException(status_code=400, detail="Não é possível deletar seu próprio usuário")
+        
+        result = auth_manager.delete_user(user_id)
+        
+        if result["success"]:
+            return result
+        else:
+            raise HTTPException(status_code=400, detail=result.get("error", "Erro ao remover usuário"))
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao remover usuário: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao remover usuário")
+
+@app.get("/admin/auth/stats")
+async def get_auth_stats(current_user: Dict = Depends(auth_manager.require_admin())):
+    """Estatísticas do sistema de autenticação (Admin apenas)"""
+    try:
+        stats = auth_manager.get_auth_stats()
+        return stats
+    except Exception as e:
+        logger.error(f"Erro ao obter estatísticas de auth: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao obter estatísticas")
+
+@app.post("/admin/setup/initial-admin")
+async def create_initial_admin(user_data: CreateUserRequest):
+    """
+    Cria admin inicial do sistema
+    Endpoint público usado apenas na configuração inicial
+    """
+    try:
+        result = auth_manager.create_initial_admin(
+            email=user_data.email,
+            password=user_data.password
+        )
+        
+        if result["success"]:
+            return result
+        else:
+            raise HTTPException(status_code=400, detail=result.get("message", "Erro ao criar admin"))
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao criar admin inicial: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao criar admin inicial")
 
 if __name__ == "__main__":
     import uvicorn
