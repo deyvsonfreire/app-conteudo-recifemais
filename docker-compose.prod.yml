@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: recifemais-backend
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      - PYTHONPATH=/app
+      - PORT=8001
+      - ENVIRONMENT=production
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - recifemais-network
+
+  # PostgreSQL (opcional - se não usar Supabase)
+  postgres:
+    image: postgres:15-alpine
+    container_name: recifemais-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: recifemais
+      POSTGRES_USER: recifemais
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password_123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - recifemais-network
+    profiles:
+      - local-db
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: recifemais-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - recifemais-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  recifemais-network:
+    driver: bridge 
