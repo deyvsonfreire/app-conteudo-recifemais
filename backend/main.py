@@ -3,12 +3,15 @@ Aplicação FastAPI principal - RecifeMais Conteúdo
 """
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 import logging
 import hashlib
 from datetime import datetime
 import httpx
+import os
 
 from .config import settings
 from .database import db
@@ -38,6 +41,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Configurar arquivos estáticos (frontend)
+frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+if os.path.exists(frontend_path):
+    app.mount("/static", StaticFiles(directory=frontend_path), name="static")
 
 # Modelos Pydantic
 class EmailInput(BaseModel):
@@ -90,7 +98,29 @@ def get_service_key():
 
 @app.get("/")
 async def root():
-    """Endpoint raiz"""
+    """Serve a interface web principal"""
+    frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+    index_path = os.path.join(frontend_path, "index.html")
+    
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    else:
+        # Fallback para JSON se frontend não estiver disponível
+        return {
+            "message": f"🚀 {settings.APP_NAME} v{settings.APP_VERSION}",
+            "status": "active",
+            "description": "Sistema de automação inteligente de conteúdo",
+            "endpoints": {
+                "health": "/health",
+                "gmail_auth": "/auth/gmail/redirect",
+                "gmail_status": "/gmail/status",
+                "docs": "/docs"
+            }
+        }
+
+@app.get("/api")
+async def api_info():
+    """Informações da API"""
     return {
         "message": f"🚀 {settings.APP_NAME} v{settings.APP_VERSION}",
         "status": "active",
