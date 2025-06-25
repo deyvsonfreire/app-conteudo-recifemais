@@ -8,7 +8,7 @@ from typing import Optional
 class Settings(BaseSettings):
     # Configurações gerais
     APP_NAME: str = "RecifeMais Conteúdo"
-    APP_VERSION: str = "2.1.0"
+    APP_VERSION: str = "2.2.0"
     DEBUG: bool = False
     
     # URLs e Endpoints Públicos
