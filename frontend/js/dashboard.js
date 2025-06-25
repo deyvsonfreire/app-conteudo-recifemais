@@ -939,4 +939,501 @@ class DashboardManager {
 }
 
 // Instância global
-window.dashboardManager = new DashboardManager(); 
+window.dashboardManager = new DashboardManager();
+
+/**
+ * 🔍 GERADOR DE DIAGNÓSTICO COMPLETO
+ * Coleta dados do sistema e gera log detalhado
+ */
+async function generateSystemDiagnostic() {
+    try {
+        showNotification('🔍 Gerando diagnóstico completo...', 'info');
+        
+        const response = await fetch('/admin/system-diagnostic');
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            // Criar modal ou nova página com o diagnóstico
+            displayDiagnosticModal(data.diagnostic, data.summary);
+            showNotification('✅ Diagnóstico gerado com sucesso!', 'success');
+        } else {
+            throw new Error('Falha ao gerar diagnóstico');
+        }
+    } catch (error) {
+        console.error('Erro ao gerar diagnóstico:', error);
+        showNotification('❌ Erro ao gerar diagnóstico: ' + error.message, 'error');
+    }
+}
+
+/**
+ * 📋 EXIBIR DIAGNÓSTICO EM MODAL
+ */
+function displayDiagnosticModal(diagnostic, summary) {
+    const modal = document.createElement('div');
+    modal.className = 'diagnostic-modal';
+    modal.innerHTML = `
+        <div class="diagnostic-modal-content">
+            <div class="diagnostic-header">
+                <h2>🔍 DIAGNÓSTICO COMPLETO DO SISTEMA</h2>
+                <button class="close-diagnostic" onclick="closeDiagnosticModal()">&times;</button>
+            </div>
+            
+            <div class="diagnostic-summary">
+                <div class="health-score ${getHealthScoreClass(summary.health_score.score)}">
+                    <h3>${summary.health_score.status}</h3>
+                    <div class="score">${summary.health_score.score}</div>
+                </div>
+                <div class="summary-stats">
+                    <div class="stat">
+                        <span class="label">Timestamp:</span>
+                        <span class="value">${new Date(summary.timestamp).toLocaleString('pt-BR')}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="label">Erros:</span>
+                        <span class="value error-count">${summary.total_errors}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="label">Recomendações:</span>
+                        <span class="value rec-count">${summary.total_recommendations}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="diagnostic-content">
+                <div class="diagnostic-tabs">
+                    <button class="tab-btn active" onclick="showDiagnosticTab('overview')">📊 Visão Geral</button>
+                    <button class="tab-btn" onclick="showDiagnosticTab('services')">🚀 Serviços</button>
+                    <button class="tab-btn" onclick="showDiagnosticTab('database')">🗄️ Banco</button>
+                    <button class="tab-btn" onclick="showDiagnosticTab('raw')">📝 Log Completo</button>
+                </div>
+                
+                <div id="diagnostic-overview" class="diagnostic-tab-content active">
+                    ${generateOverviewContent(diagnostic)}
+                </div>
+                
+                <div id="diagnostic-services" class="diagnostic-tab-content">
+                    ${generateServicesContent(diagnostic)}
+                </div>
+                
+                <div id="diagnostic-database" class="diagnostic-tab-content">
+                    ${generateDatabaseContent(diagnostic)}
+                </div>
+                
+                <div id="diagnostic-raw" class="diagnostic-tab-content">
+                    <div class="raw-log-container">
+                        <div class="raw-log-header">
+                            <h4>📋 LOG COMPLETO PARA COPIAR</h4>
+                            <button onclick="copyDiagnosticToClipboard()" class="copy-btn">📋 Copiar Tudo</button>
+                        </div>
+                        <textarea id="diagnostic-raw-text" readonly>${JSON.stringify({diagnostic, summary}, null, 2)}</textarea>
+                    </div>
+                </div>
+            </div>
+            
+            ${diagnostic.recommendations.length > 0 ? `
+                <div class="diagnostic-recommendations">
+                    <h4>💡 Recomendações</h4>
+                    <ul>
+                        ${diagnostic.recommendations.map(rec => `<li>${rec}</li>`).join('')}
+                    </ul>
+                </div>
+            ` : ''}
+            
+            ${diagnostic.errors.length > 0 ? `
+                <div class="diagnostic-errors">
+                    <h4>⚠️ Erros Encontrados</h4>
+                    <ul>
+                        ${diagnostic.errors.map(error => `<li>${error}</li>`).join('')}
+                    </ul>
+                </div>
+            ` : ''}
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Adicionar estilos
+    addDiagnosticStyles();
+}
+
+/**
+ * 📊 GERAR CONTEÚDO DA VISÃO GERAL
+ */
+function generateOverviewContent(diagnostic) {
+    return `
+        <div class="overview-grid">
+            <div class="overview-card">
+                <h4>🖥️ Sistema</h4>
+                <p><strong>Versão:</strong> ${diagnostic.system_info.app_version}</p>
+                <p><strong>Ambiente:</strong> ${diagnostic.system_info.environment_type}</p>
+                <p><strong>Debug:</strong> ${diagnostic.system_info.debug_mode ? 'Ativo' : 'Inativo'}</p>
+            </div>
+            
+            <div class="overview-card">
+                <h4>🗄️ Banco de Dados</h4>
+                <p><strong>Status:</strong> ${diagnostic.database.connection}</p>
+                <p><strong>Credenciais:</strong> ${Array.isArray(diagnostic.database.stored_credentials) ? diagnostic.database.stored_credentials.length : 0} configuradas</p>
+            </div>
+            
+            <div class="overview-card">
+                <h4>🚀 Serviços</h4>
+                <p><strong>WordPress:</strong> ${diagnostic.services.wordpress?.status || 'N/A'}</p>
+                <p><strong>Google AI:</strong> ${diagnostic.services.google_ai?.status || 'N/A'}</p>
+                <p><strong>Gmail:</strong> ${diagnostic.services.gmail_oauth?.status || 'N/A'}</p>
+            </div>
+            
+            <div class="overview-card">
+                <h4>🔐 Credenciais</h4>
+                ${Object.entries(diagnostic.credentials).map(([key, status]) => 
+                    `<p><strong>${key}:</strong> ${status}</p>`
+                ).join('')}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * 🚀 GERAR CONTEÚDO DOS SERVIÇOS
+ */
+function generateServicesContent(diagnostic) {
+    return `
+        <div class="services-grid">
+            ${Object.entries(diagnostic.services).map(([service, data]) => `
+                <div class="service-card">
+                    <h4>${getServiceIcon(service)} ${service.toUpperCase()}</h4>
+                    <p><strong>Status:</strong> ${data.status}</p>
+                    ${data.url ? `<p><strong>URL:</strong> ${data.url}</p>` : ''}
+                    ${data.response_time ? `<p><strong>Tempo:</strong> ${data.response_time}</p>` : ''}
+                    ${data.ga4_property ? `<p><strong>GA4:</strong> ${data.ga4_property}</p>` : ''}
+                    ${data.search_console ? `<p><strong>GSC:</strong> ${data.search_console}</p>` : ''}
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+/**
+ * 🗄️ GERAR CONTEÚDO DO BANCO
+ */
+function generateDatabaseContent(diagnostic) {
+    return `
+        <div class="database-info">
+            <div class="db-connection">
+                <h4>🔗 Conexão</h4>
+                <p>${diagnostic.database.connection}</p>
+            </div>
+            
+            <div class="db-tables">
+                <h4>📋 Tabelas</h4>
+                ${Object.entries(diagnostic.database.tables || {}).map(([table, info]) => `
+                    <div class="table-info">
+                        <strong>${table}:</strong> ${info.status}
+                        ${info.row_count !== undefined ? ` (${info.row_count} registros)` : ''}
+                        ${info.error ? `<br><small>Erro: ${info.error}</small>` : ''}
+                    </div>
+                `).join('')}
+            </div>
+            
+            <div class="db-credentials">
+                <h4>🔐 Credenciais Armazenadas</h4>
+                ${Array.isArray(diagnostic.database.stored_credentials) ? 
+                    diagnostic.database.stored_credentials.map(key => `<span class="credential-tag">${key}</span>`).join('') :
+                    `<p>${diagnostic.database.stored_credentials}</p>`
+                }
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * 🎨 HELPERS
+ */
+function getHealthScoreClass(score) {
+    const numScore = parseFloat(score);
+    if (numScore >= 80) return 'excellent';
+    if (numScore >= 60) return 'good';
+    if (numScore >= 40) return 'warning';
+    return 'critical';
+}
+
+function getServiceIcon(service) {
+    const icons = {
+        wordpress: '🌐',
+        google_ai: '🤖',
+        gmail_oauth: '📧',
+        google_analytics: '📊'
+    };
+    return icons[service] || '🔧';
+}
+
+function showDiagnosticTab(tabName) {
+    // Remover active de todos os tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.diagnostic-tab-content').forEach(content => content.classList.remove('active'));
+    
+    // Ativar tab selecionado
+    document.querySelector(`[onclick="showDiagnosticTab('${tabName}')"]`).classList.add('active');
+    document.getElementById(`diagnostic-${tabName}`).classList.add('active');
+}
+
+function closeDiagnosticModal() {
+    document.querySelector('.diagnostic-modal')?.remove();
+}
+
+function copyDiagnosticToClipboard() {
+    const textarea = document.getElementById('diagnostic-raw-text');
+    textarea.select();
+    document.execCommand('copy');
+    showNotification('📋 Diagnóstico copiado para a área de transferência!', 'success');
+}
+
+/**
+ * 🎨 ESTILOS DO DIAGNÓSTICO
+ */
+function addDiagnosticStyles() {
+    if (document.getElementById('diagnostic-styles')) return;
+    
+    const styles = document.createElement('style');
+    styles.id = 'diagnostic-styles';
+    styles.textContent = `
+        .diagnostic-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .diagnostic-modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 1200px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        
+        .diagnostic-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 2px solid #f0f0f0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px 12px 0 0;
+        }
+        
+        .close-diagnostic {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 30px;
+            cursor: pointer;
+            padding: 0;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            transition: background 0.3s;
+        }
+        
+        .close-diagnostic:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .diagnostic-summary {
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .health-score {
+            text-align: center;
+            padding: 20px;
+            border-radius: 12px;
+            color: white;
+            min-width: 150px;
+        }
+        
+        .health-score.excellent { background: linear-gradient(135deg, #4CAF50, #45a049); }
+        .health-score.good { background: linear-gradient(135deg, #2196F3, #1976D2); }
+        .health-score.warning { background: linear-gradient(135deg, #FF9800, #F57C00); }
+        .health-score.critical { background: linear-gradient(135deg, #f44336, #d32f2f); }
+        
+        .health-score .score {
+            font-size: 2em;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        
+        .summary-stats {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .stat {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .stat .label {
+            display: block;
+            font-weight: bold;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .stat .value {
+            font-size: 1.2em;
+            color: #333;
+        }
+        
+        .diagnostic-tabs {
+            display: flex;
+            border-bottom: 2px solid #f0f0f0;
+            background: #fafafa;
+        }
+        
+        .tab-btn {
+            padding: 15px 25px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-weight: bold;
+            color: #666;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab-btn:hover {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .tab-btn.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background: white;
+        }
+        
+        .diagnostic-tab-content {
+            display: none;
+            padding: 20px;
+        }
+        
+        .diagnostic-tab-content.active {
+            display: block;
+        }
+        
+        .overview-grid, .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .overview-card, .service-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-left: 4px solid #667eea;
+        }
+        
+        .raw-log-container {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .raw-log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .copy-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        
+        .copy-btn:hover {
+            background: #5a67d8;
+        }
+        
+        #diagnostic-raw-text {
+            width: 100%;
+            height: 400px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            background: #2d3748;
+            color: #e2e8f0;
+            border: none;
+            border-radius: 6px;
+            padding: 15px;
+            resize: vertical;
+        }
+        
+        .diagnostic-recommendations, .diagnostic-errors {
+            margin: 20px;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        
+        .diagnostic-recommendations {
+            background: #e8f5e8;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .diagnostic-errors {
+            background: #ffeaea;
+            border-left: 4px solid #f44336;
+        }
+        
+        .credential-tag {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin: 2px;
+            font-size: 0.9em;
+        }
+        
+        .database-info > div {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .table-info {
+            margin-bottom: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            border-left: 3px solid #667eea;
+        }
+    `;
+    
+    document.head.appendChild(styles);
+} 

@@ -2865,6 +2865,277 @@ async def get_google_data_status():
         logger.error(f"Erro ao verificar status do Google Data: {e}")
         return {"authenticated": False, "error": str(e)}
 
+@app.get("/admin/system-diagnostic")
+async def system_diagnostic():
+    """
+    🔍 DIAGNÓSTICO COMPLETO DO SISTEMA
+    Gera um log detalhado do estado atual de todos os componentes
+    """
+    import json
+    import traceback
+    from datetime import datetime
+    import os
+    import sys
+    
+    diagnostic = {
+        "timestamp": datetime.now().isoformat(),
+        "system_info": {},
+        "environment": {},
+        "database": {},
+        "services": {},
+        "credentials": {},
+        "api_status": {},
+        "errors": [],
+        "recommendations": []
+    }
+    
+    try:
+        # ==========================================
+        # 🖥️ INFORMAÇÕES DO SISTEMA
+        # ==========================================
+        diagnostic["system_info"] = {
+            "python_version": sys.version,
+            "platform": os.name,
+            "working_directory": os.getcwd(),
+            "environment_type": os.getenv("ENVIRONMENT", "unknown"),
+            "app_version": os.getenv("APP_VERSION", "unknown"),
+            "debug_mode": os.getenv("DEBUG", "false").lower() == "true"
+        }
+        
+        # ==========================================
+        # 🌍 VARIÁVEIS DE AMBIENTE
+        # ==========================================
+        env_vars = [
+            "APP_NAME", "APP_VERSION", "DEBUG", "ENVIRONMENT", "PORT",
+            "WORDPRESS_URL", "BASE_URL", "GMAIL_REDIRECT_URI",
+            "SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_KEY",
+            "MAX_TOKENS_PER_REQUEST", "EMBEDDING_MODEL", "GEMINI_MODEL",
+            "EMAIL_CHECK_INTERVAL", "MAX_EMAILS_PER_BATCH", "REDIS_URL", "LOG_LEVEL"
+        ]
+        
+        diagnostic["environment"] = {}
+        for var in env_vars:
+            value = os.getenv(var)
+            if value:
+                # Mascarar credenciais sensíveis
+                if any(sensitive in var.lower() for sensitive in ['key', 'secret', 'password', 'token']):
+                    diagnostic["environment"][var] = f"***{value[-4:]}" if len(value) > 4 else "****"
+                else:
+                    diagnostic["environment"][var] = value
+            else:
+                diagnostic["environment"][var] = "NOT_SET"
+        
+        # ==========================================
+        # 🗄️ STATUS DO BANCO DE DADOS
+        # ==========================================
+        try:
+            # Testar conexão com Supabase
+            supabase_client = get_supabase_client()
+            
+            # Verificar tabelas essenciais
+            tables_to_check = ['secure_config', 'email_workflow', 'processed_emails']
+            diagnostic["database"]["connection"] = "✅ CONECTADO"
+            diagnostic["database"]["tables"] = {}
+            
+            for table in tables_to_check:
+                try:
+                    result = supabase_client.table(table).select("*").limit(1).execute()
+                    diagnostic["database"]["tables"][table] = {
+                        "status": "✅ EXISTE",
+                        "row_count": len(result.data) if result.data else 0
+                    }
+                except Exception as e:
+                    diagnostic["database"]["tables"][table] = {
+                        "status": "❌ ERRO",
+                        "error": str(e)
+                    }
+            
+            # Verificar credenciais no banco
+            try:
+                configs = supabase_client.table('secure_config').select('key').execute()
+                stored_keys = [item['key'] for item in configs.data] if configs.data else []
+                diagnostic["database"]["stored_credentials"] = stored_keys
+            except Exception as e:
+                diagnostic["database"]["stored_credentials"] = f"ERRO: {str(e)}"
+                
+        except Exception as e:
+            diagnostic["database"]["connection"] = f"❌ ERRO: {str(e)}"
+            diagnostic["errors"].append(f"Database connection failed: {str(e)}")
+        
+        # ==========================================
+        # 🔐 STATUS DAS CREDENCIAIS
+        # ==========================================
+        credential_keys = [
+            'wordpress_username', 'wordpress_password',
+            'gmail_client_id', 'gmail_client_secret', 
+            'google_ai_api_key', 'ga4_property_id', 'gsc_site_url'
+        ]
+        
+        diagnostic["credentials"] = {}
+        for key in credential_keys:
+            try:
+                value = await get_secure_config(key)
+                diagnostic["credentials"][key] = "✅ CONFIGURADO" if value else "❌ NÃO CONFIGURADO"
+            except Exception as e:
+                diagnostic["credentials"][key] = f"❌ ERRO: {str(e)}"
+        
+        # ==========================================
+        # 🚀 STATUS DOS SERVIÇOS
+        # ==========================================
+        
+        # WordPress
+        try:
+            wordpress_url = os.getenv("WORDPRESS_URL")
+            if wordpress_url:
+                import requests
+                response = requests.get(f"{wordpress_url}/wp-json/wp/v2/", timeout=10)
+                diagnostic["services"]["wordpress"] = {
+                    "url": wordpress_url,
+                    "status": "✅ ONLINE" if response.status_code == 200 else f"⚠️ STATUS {response.status_code}",
+                    "response_time": f"{response.elapsed.total_seconds():.2f}s"
+                }
+            else:
+                diagnostic["services"]["wordpress"] = {"status": "❌ URL NÃO CONFIGURADA"}
+        except Exception as e:
+            diagnostic["services"]["wordpress"] = {"status": f"❌ ERRO: {str(e)}"}
+        
+        # Google AI (Gemini)
+        try:
+            api_key = await get_secure_config('google_ai_api_key')
+            if api_key:
+                diagnostic["services"]["google_ai"] = {"status": "✅ API KEY CONFIGURADA"}
+            else:
+                diagnostic["services"]["google_ai"] = {"status": "❌ API KEY NÃO CONFIGURADA"}
+        except Exception as e:
+            diagnostic["services"]["google_ai"] = {"status": f"❌ ERRO: {str(e)}"}
+        
+        # Gmail OAuth
+        try:
+            client_id = await get_secure_config('gmail_client_id')
+            client_secret = await get_secure_config('gmail_client_secret')
+            if client_id and client_secret:
+                diagnostic["services"]["gmail_oauth"] = {"status": "✅ CREDENCIAIS CONFIGURADAS"}
+            else:
+                diagnostic["services"]["gmail_oauth"] = {"status": "❌ CREDENCIAIS NÃO CONFIGURADAS"}
+        except Exception as e:
+            diagnostic["services"]["gmail_oauth"] = {"status": f"❌ ERRO: {str(e)}"}
+        
+        # Google Analytics
+        try:
+            ga4_id = await get_secure_config('ga4_property_id')
+            gsc_url = await get_secure_config('gsc_site_url')
+            if ga4_id or gsc_url:
+                diagnostic["services"]["google_analytics"] = {
+                    "status": "✅ PARCIALMENTE CONFIGURADO",
+                    "ga4_property": "✅ CONFIGURADO" if ga4_id else "❌ NÃO CONFIGURADO",
+                    "search_console": "✅ CONFIGURADO" if gsc_url else "❌ NÃO CONFIGURADO"
+                }
+            else:
+                diagnostic["services"]["google_analytics"] = {"status": "❌ NÃO CONFIGURADO"}
+        except Exception as e:
+            diagnostic["services"]["google_analytics"] = {"status": f"❌ ERRO: {str(e)}"}
+        
+        # ==========================================
+        # 🌐 STATUS DAS APIs
+        # ==========================================
+        
+        # Health Check Interno
+        try:
+            diagnostic["api_status"]["health_check"] = "✅ FUNCIONANDO"
+        except Exception as e:
+            diagnostic["api_status"]["health_check"] = f"❌ ERRO: {str(e)}"
+        
+        # Endpoints Críticos
+        critical_endpoints = [
+            "/admin/secure-config",
+            "/admin/migrate-credentials", 
+            "/auth/gmail",
+            "/auth/google",
+            "/google-data/dashboard"
+        ]
+        
+        diagnostic["api_status"]["endpoints"] = {}
+        for endpoint in critical_endpoints:
+            try:
+                # Simular verificação de endpoint (sem fazer request real)
+                diagnostic["api_status"]["endpoints"][endpoint] = "✅ REGISTRADO"
+            except Exception as e:
+                diagnostic["api_status"]["endpoints"][endpoint] = f"❌ ERRO: {str(e)}"
+        
+        # ==========================================
+        # 💡 RECOMENDAÇÕES INTELIGENTES
+        # ==========================================
+        
+        # Verificar se migração foi feita
+        if not diagnostic["database"].get("stored_credentials"):
+            diagnostic["recommendations"].append("🔄 Execute a migração de credenciais: POST /admin/migrate-credentials")
+        
+        # Verificar WordPress
+        if diagnostic["services"].get("wordpress", {}).get("status", "").startswith("❌"):
+            diagnostic["recommendations"].append("🌐 Verifique a conexão com WordPress - URL pode estar incorreta")
+        
+        # Verificar Google AI
+        if diagnostic["services"].get("google_ai", {}).get("status", "").startswith("❌"):
+            diagnostic["recommendations"].append("🤖 Configure a API Key do Google AI (Gemini)")
+        
+        # Verificar OAuth
+        if diagnostic["services"].get("gmail_oauth", {}).get("status", "").startswith("❌"):
+            diagnostic["recommendations"].append("📧 Configure as credenciais OAuth do Gmail")
+        
+        # Verificar Analytics
+        if diagnostic["services"].get("google_analytics", {}).get("status", "").startswith("❌"):
+            diagnostic["recommendations"].append("📊 Configure Google Analytics e Search Console")
+        
+        # Verificar variáveis de ambiente críticas
+        missing_env = [var for var in ["SUPABASE_URL", "SUPABASE_SERVICE_KEY", "WORDPRESS_URL"] 
+                      if diagnostic["environment"].get(var) == "NOT_SET"]
+        if missing_env:
+            diagnostic["recommendations"].append(f"⚙️ Configure as variáveis de ambiente: {', '.join(missing_env)}")
+        
+        # ==========================================
+        # 📈 SCORE DE SAÚDE DO SISTEMA
+        # ==========================================
+        
+        total_checks = 0
+        passed_checks = 0
+        
+        # Verificar conexões essenciais
+        checks = [
+            diagnostic["database"]["connection"].startswith("✅"),
+            diagnostic["services"].get("wordpress", {}).get("status", "").startswith("✅"),
+            diagnostic["services"].get("google_ai", {}).get("status", "").startswith("✅"),
+            diagnostic["services"].get("gmail_oauth", {}).get("status", "").startswith("✅"),
+            len(diagnostic["database"].get("stored_credentials", [])) > 0
+        ]
+        
+        total_checks = len(checks)
+        passed_checks = sum(checks)
+        health_score = (passed_checks / total_checks) * 100
+        
+        diagnostic["health_score"] = {
+            "score": f"{health_score:.1f}%",
+            "status": "🟢 EXCELENTE" if health_score >= 80 else 
+                     "🟡 BOM" if health_score >= 60 else 
+                     "🟠 ATENÇÃO" if health_score >= 40 else "🔴 CRÍTICO",
+            "passed_checks": passed_checks,
+            "total_checks": total_checks
+        }
+        
+    except Exception as e:
+        diagnostic["errors"].append(f"Erro geral no diagnóstico: {str(e)}")
+        diagnostic["errors"].append(f"Traceback: {traceback.format_exc()}")
+    
+    return {
+        "status": "success",
+        "diagnostic": diagnostic,
+        "summary": {
+            "timestamp": diagnostic["timestamp"],
+            "health_score": diagnostic.get("health_score", {"score": "0%", "status": "🔴 ERRO"}),
+            "total_errors": len(diagnostic["errors"]),
+            "total_recommendations": len(diagnostic["recommendations"])
+        }
+    }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000) 

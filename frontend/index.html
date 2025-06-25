@@ -35,6 +35,51 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        
+        /* Estilos para botões de ação */
+        .settings-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            justify-content: center;
+            flex-wrap: wrap;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border: 2px dashed #dee2e6;
+        }
+        
+        .test-btn, .diagnostic-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            transition: all 0.3s;
+            min-width: 200px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+        }
+        
+        .diagnostic-btn {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.2);
+        }
+        
+        .test-btn:hover, .diagnostic-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        .diagnostic-btn:hover {
+            box-shadow: 0 8px 25px rgba(76, 175, 80, 0.4);
+        }
+        
+        .test-btn:active, .diagnostic-btn:active {
+            transform: translateY(-1px);
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -816,6 +861,15 @@
                                 </div>
                             </form>
                         </div>
+                    </div>
+
+                    <div class="settings-actions">
+                        <button onclick="testConnections()" class="test-btn">
+                            🔍 Testar Conexões
+                        </button>
+                        <button onclick="generateSystemDiagnostic()" class="diagnostic-btn">
+                            🔍 Diagnóstico Completo
+                        </button>
                     </div>
                 </div>
             </div>
