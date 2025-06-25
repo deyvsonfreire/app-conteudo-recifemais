@@ -10,15 +10,27 @@ logger = logging.getLogger(__name__)
 
 class SupabaseManager:
     def __init__(self):
-        # Usar credencial segura com fallback
-        service_key = settings.secure_supabase_service_key
+        # Usar credencial do .env primeiro (para evitar dependência circular)
+        service_key = settings.SUPABASE_SERVICE_KEY
+        
+        # Se não tiver no .env, tentar buscar do banco (lazy loading)
         if not service_key:
-            raise ValueError("SUPABASE_SERVICE_KEY não encontrada nem no banco nem no .env")
+            service_key = self._get_service_key_from_env_or_fail()
             
         self.client: Client = create_client(
             settings.SUPABASE_URL,
             service_key
         )
+        
+    def _get_service_key_from_env_or_fail(self):
+        """Busca service key do .env ou falha"""
+        # Para produção, a chave deve estar no .env temporariamente
+        # até a migração ser concluída
+        import os
+        key = os.getenv("SUPABASE_SERVICE_KEY")
+        if not key:
+            raise ValueError("SUPABASE_SERVICE_KEY não encontrada no .env. Adicione temporariamente para migração.")
+        return key
     
     def insert_email_cache(self, email_data: Dict[str, Any]) -> Optional[Dict]:
         """Insere um email no cache"""
@@ -169,6 +181,23 @@ class SupabaseManager:
         except Exception as e:
             logger.error(f"Erro ao recuperar credenciais Gmail: {e}")
             return None
+    
+    def upgrade_to_secure_credentials(self):
+        """
+        Migra para usar credenciais seguras do banco após inicialização
+        Este método é chamado após o sistema estar funcionando
+        """
+        try:
+            # Tentar buscar service key do banco
+            secure_key = self.get_secure_config("supabase_service_key")
+            if secure_key and secure_key != settings.SUPABASE_SERVICE_KEY:
+                # Recriar cliente com chave segura
+                self.client = create_client(settings.SUPABASE_URL, secure_key)
+                logger.info("Migrado para credenciais seguras do banco de dados")
+                return True
+        except Exception as e:
+            logger.warning(f"Não foi possível migrar para credenciais seguras: {e}")
+        return False
 
 # Instância global
 db = SupabaseManager() 

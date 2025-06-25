@@ -6,12 +6,13 @@ import os
 import sys
 from pathlib import Path
 
-# Adicionar o diretório backend ao path
-backend_path = Path(__file__).parent.parent / "backend"
-sys.path.insert(0, str(backend_path))
+# Adicionar o diretório raiz ao path
+root_path = Path(__file__).parent.parent
+sys.path.insert(0, str(root_path))
 
-from database import db
-from config import settings
+# Importar módulos do backend
+from backend.database import db
+from backend.config import settings
 
 def migrate_credentials():
     """Migra credenciais sensíveis para o banco de dados"""

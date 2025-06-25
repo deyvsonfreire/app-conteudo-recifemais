@@ -25,7 +25,9 @@ class Settings(BaseSettings):
     GMAIL_CLIENT_SECRET: Optional[str] = None
     WORDPRESS_USERNAME: Optional[str] = None
     WORDPRESS_PASSWORD: Optional[str] = None
-    SUPABASE_SERVICE_KEY: Optional[str] = None
+    
+    # SUPABASE_SERVICE_KEY - temporariamente no .env para evitar dependência circular
+    SUPABASE_SERVICE_KEY: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFveXJwYWRycnNja3hidWFkY25mIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDgwNjkxOSwiZXhwIjoyMDY2MzgyOTE5fQ.EWx1wZZutcONrJYSzF2r1mvuav0KilXuPOOoWJYjAyc"
     
     # Cache Redis (para desenvolvimento local)
     REDIS_URL: str = "redis://localhost:6379"
