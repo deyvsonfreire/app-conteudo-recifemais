@@ -158,10 +158,10 @@ class SupabaseManager:
     def get_secure_config(self, key: str) -> Optional[str]:
         """Obter configuração segura do banco de dados"""
         try:
-            response = self.client.table("secure_config").select("value").eq("key", key).execute()
+            response = self.client.table("secure_config").select("encrypted_value").eq("key", key).execute()
             
             if response.data and len(response.data) > 0:
-                return response.data[0]["value"]
+                return response.data[0]["encrypted_value"]
             
             return None
             
@@ -177,7 +177,7 @@ class SupabaseManager:
             
             data = {
                 "key": key,
-                "value": value,
+                "encrypted_value": value,
                 "description": description or f"Configuração {key}",
                 "updated_at": datetime.now().isoformat()
             }

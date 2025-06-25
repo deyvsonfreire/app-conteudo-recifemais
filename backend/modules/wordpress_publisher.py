@@ -224,7 +224,7 @@ class WordPressPublisher:
     def get_recent_posts(self, limit: int = 50) -> List[Dict]:
         """Busca posts recentes do WordPress"""
         try:
-            url = f"{self.base_url}/posts"
+            url = f"{self.api_url}/posts"
             params = {
                 'per_page': min(limit, 100),  # WordPress limita a 100 por página
                 'status': 'publish',
@@ -279,7 +279,7 @@ class WordPressPublisher:
     def get_posts_with_external_links(self, limit: int = 50) -> List[Dict]:
         """Busca posts que contêm links externos para análise de referências"""
         try:
-            url = f"{self.base_url}/posts"
+            url = f"{self.api_url}/posts"
             params = {
                 'per_page': min(limit, 100),
                 'status': 'publish',
@@ -344,7 +344,7 @@ class WordPressPublisher:
         try:
             # Primeiro, buscar ID da categoria
             cat_response = requests.get(
-                f"{self.base_url}/categories",
+                f"{self.api_url}/categories",
                 params={'slug': category_slug},
                 auth=self.auth,
                 timeout=30
@@ -361,7 +361,7 @@ class WordPressPublisher:
             category_id = categories[0]['id']
             
             # Buscar posts da categoria
-            url = f"{self.base_url}/posts"
+            url = f"{self.api_url}/posts"
             params = {
                 'categories': category_id,
                 'per_page': min(limit, 100),
@@ -383,7 +383,7 @@ class WordPressPublisher:
     def get_post_analytics_data(self, post_id: int) -> Dict:
         """Busca dados analíticos básicos de um post via WordPress API"""
         try:
-            url = f"{self.base_url}/posts/{post_id}"
+            url = f"{self.api_url}/posts/{post_id}"
             params = {
                 '_embed': True,
                 '_fields': 'id,title,link,date,modified,categories,tags,comment_status,_embedded'
